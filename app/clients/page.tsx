@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage() {
   const clients = await readClients();
   return (
-    <main className="mx-auto min-h-dvh w-full max-w-[420px] px-4 pb-28 pt-5">
+    <main className="mx-auto min-h-dvh w-full max-w-[420px] px-4 pb-8 pt-5">
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">

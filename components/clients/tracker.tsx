@@ -183,7 +183,27 @@ export function Tracker({ clients }: { clients: Client[] }) {
 
   return (
     <div>
-      <div className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="h-9 rounded-lg border border-border bg-panel px-3 text-sm font-medium text-text hover:bg-panel2"
+        >
+          + Add client
+        </button>
+        <button
+          type="button"
+          onClick={() => setBulk(true)}
+          className="h-9 rounded-lg border border-border bg-panel px-3 text-sm font-medium text-muted hover:text-text hover:bg-panel2"
+        >
+          Bulk add
+        </button>
+        <span className="ml-auto text-xs text-muted">
+          {localClients.length} client{localClients.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1">
         {filters.map((f) => {
           const active = filter === f.id;
           return (
@@ -191,10 +211,10 @@ export function Tracker({ clients }: { clients: Client[] }) {
               key={f.id}
               type="button"
               onClick={() => setFilter(f.id)}
-              className={`h-10 shrink-0 rounded-full px-3.5 text-sm font-medium ${
+              className={`h-9 shrink-0 rounded-full px-3 text-xs font-medium ${
                 active
-                  ? "bg-zinc-100 text-zinc-950"
-                  : "border border-zinc-800 bg-zinc-900 text-zinc-300"
+                  ? "bg-panel2 text-text border border-border"
+                  : "border border-border bg-panel text-muted hover:text-text"
               }`}
             >
               {f.label}
@@ -238,25 +258,6 @@ export function Tracker({ clients }: { clients: Client[] }) {
           empty="Nothing here yet"
         />
       )}
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-800 bg-zinc-950/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-[420px] gap-2">
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            className="h-12 flex-1 rounded-xl bg-emerald-400 text-base font-semibold text-zinc-950"
-          >
-            Add client
-          </button>
-          <button
-            type="button"
-            onClick={() => setBulk(true)}
-            className="h-12 flex-1 rounded-xl border border-zinc-700 text-base font-medium text-zinc-100"
-          >
-            Bulk add
-          </button>
-        </div>
-      </div>
 
       {editing ? (
         <ClientSheet mode="edit" client={editing} onClose={() => setEditing(null)} />
