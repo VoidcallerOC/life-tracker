@@ -4,6 +4,7 @@ out
 dist
 .env
 .env.local
+data/clients.local.json
 .DS_Store
 *.log
 .vercel

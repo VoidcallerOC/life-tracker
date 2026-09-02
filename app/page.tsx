@@ -1,9 +1,11 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { SectionKey, Store } from "@/lib/types";
 import { EMPTY, load, save, SECTION_LABEL, clearAll } from "@/lib/store";
 import { Dashboard } from "@/components/Dashboard";
 import { SectionTable } from "@/components/SectionTable";
+import { logoutAction } from "@/app/login/actions";
 
 type Tab = "dashboard" | SectionKey;
 
@@ -39,7 +41,9 @@ export default function Page() {
       <header className="flex items-center gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Life OS</h1>
-          <p className="text-muted text-sm">Personal tracker · saved to this browser</p>
+          <p className="text-muted text-sm">
+            Personal tracker · sections saved to this browser · Clients synced server-side
+          </p>
         </div>
         <nav className="flex items-center gap-1 flex-wrap ml-auto">
           {TABS.map((t) => (
@@ -51,9 +55,21 @@ export default function Page() {
               {t.label}
             </button>
           ))}
-          <button onClick={resetAll} className="tab-btn text-overdue hover:text-overdue" title="Wipe all data">
+          <Link href="/clients" className="tab-btn">
+            Clients →
+          </Link>
+          <button
+            onClick={resetAll}
+            className="tab-btn text-overdue hover:text-overdue"
+            title="Wipe localStorage data"
+          >
             Reset
           </button>
+          <form action={logoutAction}>
+            <button type="submit" className="tab-btn" title="Sign out">
+              Log out
+            </button>
+          </form>
         </nav>
       </header>
 
