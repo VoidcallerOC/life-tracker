@@ -16,6 +16,7 @@ export type Client = {
   quoted: number | null;
   deposit: number | null;
   paid: number | null;
+  paidDate: string;         // yyyy-mm-dd, when `paid` was actually collected
   githubRepo: string;
   liveUrl: string;
   domain: string;
@@ -37,6 +38,7 @@ export function emptyClient(): Omit<Client, "id"> {
     quoted: null,
     deposit: null,
     paid: null,
+    paidDate: "",
     githubRepo: "",
     liveUrl: "",
     domain: "",

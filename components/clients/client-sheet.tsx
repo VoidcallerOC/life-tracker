@@ -138,6 +138,7 @@ export function ClientSheet({
             <Field label="Deposit" name="deposit" defaultValue={moneyValue(client?.deposit ?? null)} inputMode="decimal" placeholder="$" />
             <Field label="Paid" name="paid" defaultValue={moneyValue(client?.paid ?? null)} inputMode="decimal" placeholder="$" />
           </div>
+          <Field label="Paid date" name="paidDate" type="date" defaultValue={client?.paidDate} />
           <Field label="GitHub repo" name="githubRepo" defaultValue={client?.githubRepo} placeholder="VoidcallerOC/repo" />
           <Field label="Live URL" name="liveUrl" defaultValue={client?.liveUrl} placeholder="https://" inputMode="url" />
           <Field label="Domain" name="domain" defaultValue={client?.domain} />

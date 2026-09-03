@@ -4,12 +4,21 @@ import { useMemo } from "react";
 import type { Client } from "@/lib/clients/types";
 import { PIPELINE_STATUSES } from "@/lib/clients/types";
 
+const CARE_PLAN_PRICE = 35;
+
 function money(n: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+function isThisMonth(dateStr: string, now: Date): boolean {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
 const STATUS_PILL: Record<Client["status"], string> = {
@@ -21,15 +30,37 @@ const STATUS_PILL: Record<Client["status"], string> = {
 
 export function FrontWindowSummary({ clients }: { clients: Client[] }) {
   const stats = useMemo(() => {
+    const now = new Date();
     const counts: Record<Client["status"], number> = { Potential: 0, Pending: 0, Paid: 0, Lost: 0 };
-    let quoted = 0, deposit = 0, paid = 0;
+    let quoted = 0, deposit = 0, paid = 0, paidThisMonth = 0, outstanding = 0;
+    let missingPaidDate = 0;
+
     for (const c of clients) {
       counts[c.status] += 1;
       quoted += c.quoted ?? 0;
       deposit += c.deposit ?? 0;
       paid += c.paid ?? 0;
+
+      if (c.paid && isThisMonth(c.paidDate, now)) paidThisMonth += c.paid;
+      if (c.paid && !c.paidDate) missingPaidDate += 1;
+
+      if (c.status !== "Lost" && c.quoted != null) {
+        const owed = c.quoted - (c.deposit ?? 0) - (c.paid ?? 0);
+        if (owed > 0) outstanding += owed;
+      }
     }
-    return { counts, quoted, deposit, paid, total: clients.length };
+
+    return {
+      counts,
+      quoted,
+      deposit,
+      paid,
+      paidThisMonth,
+      outstanding,
+      missingPaidDate,
+      mrr: counts.Paid * CARE_PLAN_PRICE,
+      total: clients.length,
+    };
   }, [clients]);
 
   const active = useMemo(
@@ -57,10 +88,27 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
         <Stat label="Pending" value={stats.counts.Pending} />
         <Stat label="Paid" value={stats.counts.Paid} tone="later" />
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Quoted" value={money(stats.quoted)} />
-        <Stat label="Deposits" value={money(stats.deposit)} />
-        <Stat label="Paid" value={money(stats.paid)} tone="later" />
+
+      <div>
+        <div className="text-xs uppercase tracking-wide text-muted mb-2">Revenue</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Stat label="Est. MRR" value={money(stats.mrr)} tone="later" />
+          <Stat label="Paid this month" value={money(stats.paidThisMonth)} tone="later" />
+          <Stat label="Paid all-time" value={money(stats.paid)} />
+          <Stat label="Outstanding balance" value={money(stats.outstanding)} tone={stats.outstanding > 0 ? "soon" : undefined} />
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Est. MRR = Paid clients × $35/mo care plan. Outstanding balance = quoted − deposit − paid, summed across
+          non-Lost clients still owed money.
+          {stats.missingPaidDate > 0 && (
+            <> {stats.missingPaidDate} paid client{stats.missingPaidDate === 1 ? "" : "s"} missing a Paid Date — add one in their record so "Paid this month" counts them.</>
+          )}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Stat label="Total quoted" value={money(stats.quoted)} />
+        <Stat label="Total deposits" value={money(stats.deposit)} />
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-panel">

@@ -34,6 +34,7 @@ function clientFromForm(formData: FormData, id: string): Client {
     quoted: parseMoney(formData.get("quoted")),
     deposit: parseMoney(formData.get("deposit")),
     paid: parseMoney(formData.get("paid")),
+    paidDate: field(formData, "paidDate"),
     githubRepo: field(formData, "githubRepo"),
     liveUrl: field(formData, "liveUrl"),
     domain: field(formData, "domain"),

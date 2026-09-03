@@ -66,6 +66,7 @@ function normalizeClients(value: unknown): Client[] | null {
         typeof client.contacted === "boolean"
           ? client.contacted
           : Boolean(client.lastContacted),
+      paidDate: typeof client.paidDate === "string" ? client.paidDate : "",
     } as Client;
   });
 }
