@@ -25,9 +25,15 @@ function isBlobTokenValue(v: string | undefined): v is string {
 }
 
 export function detectBlobToken(): { name: string; value: string } | null {
-  const preferred = ["BLOB", "READ", "WRITE", "TOKEN"].join("_");
-  const direct = sanitizeToken(process.env[preferred]);
-  if (isBlobTokenValue(direct)) return { name: preferred, value: direct };
+  const preferred = [
+    "Client1_READ_WRITE_TOKEN",
+    "CLIENT1_READ_WRITE_TOKEN",
+    ["BLOB", "READ", "WRITE", "TOKEN"].join("_"),
+  ];
+  for (const name of preferred) {
+    const direct = sanitizeToken(process.env[name]);
+    if (isBlobTokenValue(direct)) return { name, value: direct };
+  }
 
   const suffix = ["READ", "WRITE", "TOKEN"].join("_");
   for (const [k, raw] of Object.entries(process.env)) {

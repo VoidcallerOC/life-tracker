@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate:client-ids": "node scripts/migrate-client-ids.mjs",
+    "migrate:client-ids:apply": "node scripts/migrate-client-ids.mjs --apply"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",
