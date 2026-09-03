@@ -46,7 +46,6 @@ export function parseCSV(text: string): RowMap[] {
 }
 
 export const HEADERS: Record<SectionKey, string[]> = {
-  saas: ["Project", "Stage", "Deadline", "Client Contact", "Notes", "Follow-Up Date", "Priority"],
   animals: ["Animal ID", "Species", "Stage", "Buyer Info", "Sale Date", "Notes"],
   content: ["Task", "Type", "Deadline", "Status", "Platform", "Notes"],
   personal: ["Task", "Category", "Deadline", "Status", "Notes"],
@@ -60,8 +59,6 @@ export function exportSection(section: SectionKey, store: Store): string {
 
 function rowToCsv(section: SectionKey, r: any): Record<string, unknown> {
   switch (section) {
-    case "saas":
-      return { "Project": r.project, "Stage": r.stage, "Deadline": r.deadline, "Client Contact": r.clientContact, "Notes": r.notes, "Follow-Up Date": r.followUpDate, "Priority": r.priority };
     case "animals":
       return { "Animal ID": r.animalId, "Species": r.species, "Stage": r.stage, "Buyer Info": r.buyer, "Sale Date": r.saleDate, "Notes": r.notes };
     case "content":
@@ -74,17 +71,6 @@ function rowToCsv(section: SectionKey, r: any): Record<string, unknown> {
 export function importSection(section: SectionKey, text: string): any[] {
   const rows = parseCSV(text);
   switch (section) {
-    case "saas":
-      return rows.map((r) => ({
-        id: rid(),
-        project: r["Project"] ?? r["project"] ?? "",
-        stage: (r["Stage"] || "Active") as any,
-        deadline: normalizeDate(r["Deadline"]),
-        clientContact: r["Client Contact"] ?? "",
-        notes: r["Notes"] ?? "",
-        followUpDate: normalizeDate(r["Follow-Up Date"]),
-        priority: (r["Priority"] || "Medium") as any,
-      }));
     case "animals":
       return rows.map((r) => ({
         id: rid(),

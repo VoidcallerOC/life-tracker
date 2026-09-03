@@ -1,23 +1,12 @@
 "use client";
 import { useMemo } from "react";
 import type { DashboardItem, Store } from "@/lib/types";
+import type { Client } from "@/lib/clients/types";
 import { SECTION_LABEL } from "@/lib/store";
 import { bucketFor, bucketLabel, daysUntil, pillClass } from "@/lib/deadlines";
 
-function collect(store: Store): DashboardItem[] {
+function collect(store: Store, clients: Client[]): DashboardItem[] {
   const items: DashboardItem[] = [];
-  for (const r of store.saas) {
-    items.push({
-      section: SECTION_LABEL.saas,
-      task: r.project,
-      deadline: r.deadline,
-      notes: r.notes,
-      priority: r.priority,
-      stage: r.stage,
-      source: "saas",
-      sourceId: r.id,
-    });
-  }
   for (const r of store.animals) {
     items.push({
       section: SECTION_LABEL.animals,
@@ -54,11 +43,35 @@ function collect(store: Store): DashboardItem[] {
       sourceId: r.id,
     });
   }
+  // Only actionable clients: not Lost, with a real next step set — otherwise
+  // all 50+ CRM rows would flood a dashboard meant for "what needs attention."
+  for (const c of clients) {
+    if (c.status === "Lost") continue;
+    if (!c.nextAction.trim()) continue;
+    items.push({
+      section: "Front Window",
+      task: c.client,
+      deadline: "",
+      notes: c.nextAction,
+      priority: "",
+      stage: c.status,
+      source: "clients",
+      sourceId: c.id,
+    });
+  }
   return items.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
 }
 
-export function Dashboard({ store, onJump }: { store: Store; onJump: (s: string) => void }) {
-  const items = useMemo(() => collect(store), [store]);
+export function Dashboard({
+  store,
+  clients,
+  onJump,
+}: {
+  store: Store;
+  clients: Client[];
+  onJump: (s: string) => void;
+}) {
+  const items = useMemo(() => collect(store, clients), [store, clients]);
 
   const stats = useMemo(() => {
     let overdue = 0, soon = 0, later = 0;

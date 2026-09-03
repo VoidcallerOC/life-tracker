@@ -3,32 +3,10 @@ import type { Store, SectionKey } from "./types";
 
 const KEY = "life-os:v1";
 
-export const EMPTY: Store = { saas: [], animals: [], content: [], personal: [] };
+export const EMPTY: Store = { animals: [], content: [], personal: [] };
 
 export function seed(): Store {
   return {
-    saas: [
-      {
-        id: rid(),
-        project: "Front Window / Harris DNS",
-        stage: "Active",
-        deadline: "2026-09-04",
-        clientContact: "Adam / Seth",
-        notes: "Cloudflare nameserver flip",
-        followUpDate: "2026-09-03",
-        priority: "High",
-      },
-      {
-        id: rid(),
-        project: "ETC walk follow-up",
-        stage: "Pending",
-        deadline: "2026-09-07",
-        clientContact: "Comics ETC",
-        notes: "Collection intake",
-        followUpDate: "2026-09-07",
-        priority: "Medium",
-      },
-    ],
     animals: [],
     content: [
       {
@@ -41,7 +19,16 @@ export function seed(): Store {
         notes: "Sample row",
       },
     ],
-    personal: [],
+    personal: [
+      {
+        id: rid(),
+        task: "Front Window / Harris DNS — Cloudflare nameserver flip",
+        category: "Ops",
+        deadline: "2026-09-04",
+        status: "Active",
+        notes: "Contact: Adam / Seth",
+      },
+    ],
   };
 }
 
@@ -79,7 +66,6 @@ export function clearAll(): Store {
 }
 
 export const SECTION_LABEL: Record<SectionKey, string> = {
-  saas: "SaaS",
   animals: "Animals",
   content: "Content",
   personal: "Personal",

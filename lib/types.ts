@@ -1,17 +1,6 @@
 export type Priority = "High" | "Medium" | "Low";
 export type Stage = "Active" | "Pending" | "Blocked" | "Done";
 
-export interface SaaSRow {
-  id: string;
-  project: string;
-  stage: Stage;
-  deadline: string;         // yyyy-mm-dd
-  clientContact: string;
-  notes: string;
-  followUpDate: string;     // yyyy-mm-dd
-  priority: Priority;
-}
-
 export interface AnimalRow {
   id: string;
   animalId: string;
@@ -42,7 +31,6 @@ export interface PersonalRow {
 }
 
 export interface Store {
-  saas: SaaSRow[];
   animals: AnimalRow[];
   content: ContentRow[];
   personal: PersonalRow[];
@@ -57,6 +45,6 @@ export interface DashboardItem {
   notes: string;
   priority: Priority | "";
   stage: string;
-  source: SectionKey;
+  source: SectionKey | "clients";
   sourceId: string;
 }

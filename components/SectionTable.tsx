@@ -14,15 +14,6 @@ type ColDef = {
 };
 
 const COLS: Record<SectionKey, ColDef[]> = {
-  saas: [
-    { key: "project", label: "Project", className: "min-w-[200px]" },
-    { key: "stage", label: "Stage", kind: "select", options: ["Active", "Pending", "Blocked", "Done"] },
-    { key: "deadline", label: "Deadline", kind: "date" },
-    { key: "followUpDate", label: "Follow-Up", kind: "date" },
-    { key: "clientContact", label: "Contact" },
-    { key: "priority", label: "Priority", kind: "select", options: ["High", "Medium", "Low"] },
-    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
-  ],
   animals: [
     { key: "animalId", label: "Animal ID" },
     { key: "species", label: "Species" },
@@ -49,7 +40,6 @@ const COLS: Record<SectionKey, ColDef[]> = {
 };
 
 const BLANK: Record<SectionKey, () => any> = {
-  saas: () => ({ id: rid(), project: "", stage: "Active", deadline: "", followUpDate: "", clientContact: "", priority: "Medium", notes: "" }),
   animals: () => ({ id: rid(), animalId: "", species: "", stage: "Active", buyer: "", saleDate: "", notes: "" }),
   content: () => ({ id: rid(), task: "", type: "", deadline: "", status: "", platform: "", notes: "" }),
   personal: () => ({ id: rid(), task: "", category: "", deadline: "", status: "", notes: "" }),
