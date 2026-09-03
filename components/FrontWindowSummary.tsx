@@ -57,8 +57,8 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
       paidThisMonth,
       outstanding,
       mrr: counts.Paid * CARE_PLAN_PRICE,
-      // Potential records are prospects, not customers, so keep them out of Total clients.
-      total: clients.length - counts.Potential,
+      // Total clients = actual customers (Pending or Paid), not prospects (Potential) or Lost.
+      total: counts.Pending + counts.Paid,
     };
   }, [clients]);
 
