@@ -5,12 +5,34 @@ import type { Client } from "./types";
 
 const BLOB_PATHNAME = "clients.json";
 
-function blobTokenKey(): string {
-  return ["BLOB", "READ", "WRITE", "TOKEN"].join("_");
+// Detect the Blob token under any name Vercel might have assigned. Custom
+// store names get a store-name prefix (e.g. MY_STORE_READ_WRITE_TOKEN), so
+// hard-coding BLOB_READ_WRITE_TOKEN misses those. Returns { name, value }
+// so the badge can show which var was picked up.
+export function detectBlobToken(): { name: string; value: string } | null {
+  const preferred = ["BLOB", "READ", "WRITE", "TOKEN"].join("_");
+  const direct = process.env[preferred];
+  if (direct) return { name: preferred, value: direct };
+
+  const suffix = ["READ", "WRITE", "TOKEN"].join("_");
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v && k.endsWith(`_${suffix}`) && v.startsWith("vercel_blob_")) {
+      return { name: k, value: v };
+    }
+  }
+  return null;
 }
 
 export function blobEnabled(): boolean {
-  return Boolean(process.env[blobTokenKey()]);
+  return detectBlobToken() !== null;
+}
+
+export function blobTokenName(): string | null {
+  return detectBlobToken()?.name ?? null;
+}
+
+function tokenValue(): string | undefined {
+  return detectBlobToken()?.value;
 }
 
 function localDataPath(): string {
@@ -48,10 +70,12 @@ async function parseClientsJson(text: string): Promise<Client[] | null> {
 }
 
 async function readFromBlob(): Promise<Client[] | null> {
+  const token = tokenValue();
   try {
     const result = await get(BLOB_PATHNAME, {
       access: "private",
       useCache: false,
+      token,
     });
     if (result && result.statusCode === 200 && result.stream) {
       const text = await new Response(result.stream).text();
@@ -62,7 +86,7 @@ async function readFromBlob(): Promise<Client[] | null> {
   }
 
   try {
-    const { blobs } = await list({ prefix: BLOB_PATHNAME, limit: 20 });
+    const { blobs } = await list({ prefix: BLOB_PATHNAME, limit: 20, token });
     const match = blobs.find((b) => b.pathname === BLOB_PATHNAME);
     if (!match) return null;
     const url = match.downloadUrl || match.url;
@@ -85,6 +109,7 @@ async function writeToBlob(clients: Client[]): Promise<void> {
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
+    token: tokenValue(),
   });
 }
 

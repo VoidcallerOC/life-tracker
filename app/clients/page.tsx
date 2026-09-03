@@ -2,14 +2,18 @@ import Link from "next/link";
 import { logoutAction } from "@/app/login/actions";
 import { Tracker } from "@/components/clients/tracker";
 import { SyncButton } from "@/components/clients/sync-button";
-import { readClients, blobEnabled } from "@/lib/clients/storage";
+import { readClients, blobEnabled, blobTokenName } from "@/lib/clients/storage";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientsPage() {
   const clients = await readClients();
   const storageOk = blobEnabled();
+  const tokenName = blobTokenName();
   const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+  const blobLikeEnv = Object.keys(process.env)
+    .filter((k) => k.endsWith("_READ_WRITE_TOKEN") || k === "BLOB_READ_WRITE_TOKEN")
+    .sort();
   return (
     <main className="mx-auto min-h-dvh w-full max-w-[420px] px-4 pb-8 pt-5">
       <header className="flex items-start justify-between gap-3">
@@ -29,14 +33,21 @@ export default async function ClientsPage() {
                   : "border-overdue/40 bg-overdue/10 text-overdue"
               }`}
             >
-              Storage: {storageOk ? "Vercel Blob ✓" : "Not connected"}
+              Storage: {storageOk ? `Vercel Blob ✓ (${tokenName})` : "Not connected"}
             </span>
           </p>
           {!storageOk && isProd ? (
-            <p className="mt-2 text-[11px] leading-4 text-overdue">
-              BLOB_READ_WRITE_TOKEN is not in this deployment&apos;s env. Writes will fail.
-              Fix in Vercel → Storage → Blob → Connect Project → life-tracker, then redeploy.
-            </p>
+            <div className="mt-2 text-[11px] leading-4 text-overdue">
+              <p>No *_READ_WRITE_TOKEN env var was found in this deployment.</p>
+              {blobLikeEnv.length > 0 ? (
+                <p className="mt-1 text-muted">
+                  Detected token-like keys: {blobLikeEnv.join(", ")}
+                </p>
+              ) : null}
+              <p className="mt-1 text-muted">
+                Fix in Vercel → Storage → Blob → Projects → Connect Project → life-tracker, then redeploy.
+              </p>
+            </div>
           ) : null}
         </div>
         <div className="flex flex-col items-end gap-2">
