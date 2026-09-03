@@ -21,6 +21,11 @@ export default async function LoginPage({
           AUTH_PASSWORD is not configured on the server.
         </p>
       ) : null}
+      {params.error === "rate-limited" ? (
+        <p className="mt-4 text-xs text-overdue">
+          Too many login attempts. Please try again in 10 minutes.
+        </p>
+      ) : null}
     </main>
   );
 }
