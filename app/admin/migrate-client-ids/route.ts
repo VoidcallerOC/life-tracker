@@ -58,7 +58,7 @@ async function writeBlob(pathname: string, value: Client[], token: string): Prom
   });
 }
 
-export async function POST(request: Request) {
+async function migrate(request: Request) {
   const body = await request.text();
   if (body.trim() !== "MIGRATE Client1") {
     return NextResponse.json({ error: "Confirmation required" }, { status: 400 });
@@ -93,6 +93,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json({ message: "POST confirmation required" }, { status: 405 });
+export async function POST(request: Request) {
+  return migrate(request);
+}
+
+export async function GET(request: Request) {
+  const confirmation = new URL(request.url).searchParams.get("confirm");
+  if (confirmation !== "MIGRATE Client1") {
+    return NextResponse.json({ message: "Confirmation required" }, { status: 405 });
+  }
+  return migrate(new Request(request.url, { method: "POST", body: confirmation }));
 }
