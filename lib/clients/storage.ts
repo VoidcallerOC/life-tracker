@@ -4,6 +4,7 @@ import path from "path";
 import type { Client } from "./types";
 
 const BLOB_PATHNAME = "clients.json";
+const CLIENT_ID_PREFIX = "Client1-";
 
 // Detect the Blob token under any name Vercel might have assigned. Custom
 // store names get a store-name prefix (e.g. MY_STORE_READ_WRITE_TOKEN), so
@@ -71,6 +72,17 @@ function normalizeClients(value: unknown): Client[] | null {
   });
 }
 
+function migrateClientIds(clients: Client[]): { clients: Client[]; changed: boolean } {
+  let changed = false;
+  const migrated = clients.map((client, index) => {
+    const id = `${CLIENT_ID_PREFIX}${String(index + 1).padStart(3, "0")}`;
+    if (client.id === id) return client;
+    changed = true;
+    return { ...client, id };
+  });
+  return { clients: migrated, changed };
+}
+
 async function loadShippedSeed(): Promise<Client[]> {
   const filePath = localDataPath();
   const raw = await fs.readFile(filePath, "utf8");
@@ -133,7 +145,11 @@ async function writeToBlob(clients: Client[]): Promise<void> {
 export async function readClients(): Promise<Client[]> {
   if (blobEnabled()) {
     const existing = await readFromBlob();
-    if (existing && existing.length > 0) return existing;
+    if (existing && existing.length > 0) {
+      const migrated = migrateClientIds(existing);
+      if (migrated.changed) await writeToBlob(migrated.clients);
+      return migrated.clients;
+    }
     const seed = await loadShippedSeed();
     await writeToBlob(seed);
     return seed;
