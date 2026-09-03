@@ -9,6 +9,13 @@ const LIVE_PATH = "clients.json";
 const STAGED_PATH = "clients.migrated.json";
 const PREFIX = "Client1-";
 
+function tokenFromEnv(name: string): string | undefined {
+  return process.env[name]
+    ?.split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.startsWith("vercel_blob_"));
+}
+
 function idFor(index: number): string {
   return `${PREFIX}${String(index + 1).padStart(3, "0")}`;
 }
@@ -68,26 +75,29 @@ async function migrate(request: Request) {
     return NextResponse.json({ error: "Confirmation required" }, { status: 400 });
   }
 
-  const detected = detectBlobToken();
-  if (!detected) return NextResponse.json({ error: "No Blob token is configured" }, { status: 503 });
+  const sourceToken = tokenFromEnv("BLOB_READ_WRITE_TOKEN") ?? tokenFromEnv("BLOB_READ_WRITE_TOKEN");
+  const targetToken = tokenFromEnv("Client1_READ_WRITE_TOKEN") ?? tokenFromEnv("CLIENT1_READ_WRITE_TOKEN");
+  if (!sourceToken || !targetToken) {
+    return NextResponse.json({ error: "Source and Client1 Blob tokens are required" }, { status: 503 });
+  }
 
   try {
-    const original = validate(await readBlob(LIVE_PATH, detected.value), "Live Blob data");
+    const original = validate(await readBlob(LIVE_PATH, sourceToken), "Source Blob data");
     const migrated = original.map((client, index) => ({ ...client, id: idFor(index) }));
     assertEquivalent(original, migrated);
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     const backupPath = `clients.backup-${stamp}.json`;
-    await writeBlob(backupPath, original, detected.value);
-    const backup = validate(await readBlob(backupPath, detected.value), "Backup Blob data");
+    await writeBlob(backupPath, original, targetToken);
+    const backup = validate(await readBlob(backupPath, targetToken), "Backup Blob data");
     if (JSON.stringify(backup) !== JSON.stringify(original)) throw new Error("Backup verification failed");
 
-    await writeBlob(STAGED_PATH, migrated, detected.value);
-    const staged = validate(await readBlob(STAGED_PATH, detected.value), "Staged Blob data");
+    await writeBlob(STAGED_PATH, migrated, targetToken);
+    const staged = validate(await readBlob(STAGED_PATH, targetToken), "Staged Blob data");
     assertEquivalent(original, staged);
 
-    await writeBlob(LIVE_PATH, staged, detected.value);
-    const final = validate(await readBlob(LIVE_PATH, detected.value), "Final Blob data");
+    await writeBlob(LIVE_PATH, staged, targetToken);
+    const final = validate(await readBlob(LIVE_PATH, targetToken), "Final Blob data");
     assertEquivalent(original, final);
 
     return NextResponse.json({ migrated: final.length, backup: backupPath });
