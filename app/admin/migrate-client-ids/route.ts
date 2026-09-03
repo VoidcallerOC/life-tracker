@@ -14,9 +14,13 @@ function idFor(index: number): string {
 }
 
 async function readBlob(pathname: string, token: string): Promise<unknown> {
-  const result = await get(pathname, { access: "private", useCache: false, token });
-  if (result?.statusCode === 200 && result.stream) {
-    return JSON.parse(await new Response(result.stream).text());
+  try {
+    const result = await get(pathname, { access: "private", useCache: false, token });
+    if (result?.statusCode === 200 && result.stream) {
+      return JSON.parse(await new Response(result.stream).text());
+    }
+  } catch {
+    // Fall back to listing when get() rejects a missing/private blob.
   }
   const { blobs } = await list({ prefix: pathname, limit: 20, token });
   const match = blobs.find((blob) => blob.pathname === pathname);
