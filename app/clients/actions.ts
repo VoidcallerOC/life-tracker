@@ -77,6 +77,30 @@ export async function reseedFromRepo() {
   revalidatePath(ROUTE);
 }
 
+// One-time convenience: stamps today's date on Paid clients that have a
+// paid amount but no Paid Date yet, so "Paid this month" isn't stuck at $0
+// forever. This is an approximation, not real payment history — it marks
+// everything backfilled as paid "today" regardless of when it actually
+// happened. Never overwrites a date that's already set.
+export async function backfillPaidDates(): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const clients = await readClients();
+  let count = 0;
+  const next = clients.map((c) => {
+    if (c.status === "Paid" && c.paid && !c.paidDate) {
+      count += 1;
+      return { ...c, paidDate: today };
+    }
+    return c;
+  });
+  if (count > 0) {
+    await writeClients(next);
+    revalidatePath(ROUTE);
+    revalidatePath("/");
+  }
+  return count;
+}
+
 export async function setStatus(id: string, status: Status): Promise<boolean> {
   if (!isStatus(status) || !id) return false;
 

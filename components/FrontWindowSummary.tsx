@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import type { Client } from "@/lib/clients/types";
 import { PIPELINE_STATUSES } from "@/lib/clients/types";
+import { BackfillPaidDatesNotice } from "@/components/clients/backfill-paid-dates";
 
 const CARE_PLAN_PRICE = 35;
 
@@ -33,7 +34,6 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
     const now = new Date();
     const counts: Record<Client["status"], number> = { Potential: 0, Pending: 0, Paid: 0, Lost: 0 };
     let quoted = 0, deposit = 0, paid = 0, paidThisMonth = 0, outstanding = 0;
-    let missingPaidDate = 0;
 
     for (const c of clients) {
       counts[c.status] += 1;
@@ -42,7 +42,6 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
       paid += c.paid ?? 0;
 
       if (c.paid && isThisMonth(c.paidDate, now)) paidThisMonth += c.paid;
-      if (c.paid && !c.paidDate) missingPaidDate += 1;
 
       if (c.status !== "Lost" && c.quoted != null) {
         const owed = c.quoted - (c.deposit ?? 0) - (c.paid ?? 0);
@@ -57,7 +56,6 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
       paid,
       paidThisMonth,
       outstanding,
-      missingPaidDate,
       mrr: counts.Paid * CARE_PLAN_PRICE,
       total: clients.length,
     };
@@ -100,10 +98,10 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
         <p className="mt-2 text-xs text-muted">
           Est. MRR = Paid clients × $35/mo care plan. Outstanding balance = quoted − deposit − paid, summed across
           non-Lost clients still owed money.
-          {stats.missingPaidDate > 0 && (
-            <> {stats.missingPaidDate} paid client{stats.missingPaidDate === 1 ? "" : "s"} missing a Paid Date — add one in their record so "Paid this month" counts them.</>
-          )}
         </p>
+        <div className="mt-2">
+          <BackfillPaidDatesNotice clients={clients} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

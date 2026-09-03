@@ -2,6 +2,7 @@ import Link from "next/link";
 import { logoutAction } from "@/app/login/actions";
 import { Tracker } from "@/components/clients/tracker";
 import { SyncButton } from "@/components/clients/sync-button";
+import { BackfillPaidDatesNotice } from "@/components/clients/backfill-paid-dates";
 import { readClients, blobEnabled, blobTokenName } from "@/lib/clients/storage";
 
 export const dynamic = "force-dynamic";
@@ -70,6 +71,9 @@ export default async function ClientsPage() {
           </div>
         </div>
       </header>
+      <div className="mt-3">
+        <BackfillPaidDatesNotice clients={clients} />
+      </div>
       <Tracker clients={clients} />
     </main>
   );
