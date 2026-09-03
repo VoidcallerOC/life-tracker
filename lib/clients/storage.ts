@@ -7,16 +7,32 @@ const BLOB_PATHNAME = "clients.json";
 
 // Detect the Blob token under any name Vercel might have assigned. Custom
 // store names get a store-name prefix (e.g. MY_STORE_READ_WRITE_TOKEN), so
-// hard-coding BLOB_READ_WRITE_TOKEN misses those. Returns { name, value }
-// so the badge can show which var was picked up.
+// hard-coding BLOB_READ_WRITE_TOKEN misses those. Sanitizes the value:
+// grabs the first non-empty line that looks like a Blob token, so a
+// multi-line paste (token + store-id, or full .env.local dump) still works.
+function sanitizeToken(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("vercel_blob_")) return trimmed;
+  }
+  const first = raw.split(/\s+/).map((s) => s.trim()).find(Boolean);
+  return first || undefined;
+}
+
+function isBlobTokenValue(v: string | undefined): v is string {
+  return !!v && v.startsWith("vercel_blob_");
+}
+
 export function detectBlobToken(): { name: string; value: string } | null {
   const preferred = ["BLOB", "READ", "WRITE", "TOKEN"].join("_");
-  const direct = process.env[preferred];
-  if (direct) return { name: preferred, value: direct };
+  const direct = sanitizeToken(process.env[preferred]);
+  if (isBlobTokenValue(direct)) return { name: preferred, value: direct };
 
   const suffix = ["READ", "WRITE", "TOKEN"].join("_");
-  for (const [k, v] of Object.entries(process.env)) {
-    if (v && k.endsWith(`_${suffix}`) && v.startsWith("vercel_blob_")) {
+  for (const [k, raw] of Object.entries(process.env)) {
+    const v = sanitizeToken(raw);
+    if (isBlobTokenValue(v) && k.endsWith(`_${suffix}`)) {
       return { name: k, value: v };
     }
   }
