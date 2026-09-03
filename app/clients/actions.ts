@@ -5,22 +5,6 @@ import { emptyClient, isStatus, type Client, type Status } from "@/lib/clients/t
 import { readClients, writeClients, resetToShippedSeed } from "@/lib/clients/storage";
 
 const ROUTE = "/clients";
-const CLIENT_ID_PREFIX = "Client1-";
-
-function nextClientId(clients: Client[]): string {
-  const used = new Set(clients.map((client) => client.id));
-  let sequence = 1;
-  for (const client of clients) {
-    const match = client.id.match(/^Client1-(\d+)$/i);
-    if (match) sequence = Math.max(sequence, Number(match[1]) + 1);
-  }
-  let id = `${CLIENT_ID_PREFIX}${String(sequence).padStart(3, "0")}`;
-  while (used.has(id)) {
-    sequence += 1;
-    id = `${CLIENT_ID_PREFIX}${String(sequence).padStart(3, "0")}`;
-  }
-  return id;
-}
 
 function parseMoney(value: FormDataEntryValue | null): number | null {
   if (value == null) return null;
@@ -79,10 +63,10 @@ export async function saveClient(formData: FormData) {
 }
 
 export async function createClient(formData: FormData) {
-  const clients = await readClients();
-  const id = nextClientId(clients);
+  const id = crypto.randomUUID();
   const next = clientFromForm(formData, id);
   if (!next.client) return;
+  const clients = await readClients();
   clients.unshift(next);
   await writeClients(clients);
   revalidatePath(ROUTE);
@@ -159,7 +143,7 @@ export async function bulkAdd(formData: FormData) {
     existing.add(name.toLowerCase());
     added.push({
       ...emptyClient(),
-      id: nextClientId([...added, ...clients]),
+      id: crypto.randomUUID(),
       client: name,
       status: "Potential",
     });
