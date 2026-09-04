@@ -46,7 +46,7 @@ export function parseCSV(text: string): RowMap[] {
 }
 
 export const HEADERS: Record<SectionKey, string[]> = {
-  animals: ["Name", "Species", "Status", "Last Fed", "Last Vet Visit", "Next Care Due", "Notes"],
+  animals: ["Name", "Species", "Enclosure", "Last Fed", "Last Cleaned", "Next Care Due", "Notes"],
   content: ["Task", "Type", "Deadline", "Status", "Platform", "Notes"],
   personal: ["Task", "Category", "Deadline", "Status", "Notes"],
 };
@@ -63,9 +63,9 @@ function rowToCsv(section: SectionKey, r: any): Record<string, unknown> {
       return {
         "Name": r.name,
         "Species": r.species,
-        "Status": r.status,
+        "Enclosure": r.enclosure,
         "Last Fed": r.lastFed,
-        "Last Vet Visit": r.lastVetVisit,
+        "Last Cleaned": r.lastCleaned,
         "Next Care Due": r.nextCareDue,
         "Notes": r.notes,
       };
@@ -84,9 +84,9 @@ export function importSection(section: SectionKey, text: string): any[] {
         id: rid(),
         name: r["Name"] ?? "",
         species: r["Species"] ?? "",
-        status: r["Status"] || "Healthy",
+        enclosure: r["Enclosure"] ?? "",
         lastFed: normalizeDate(r["Last Fed"]),
-        lastVetVisit: normalizeDate(r["Last Vet Visit"]),
+        lastCleaned: normalizeDate(r["Last Cleaned"]),
         nextCareDue: normalizeDate(r["Next Care Due"]),
         notes: r["Notes"] ?? "",
       }));

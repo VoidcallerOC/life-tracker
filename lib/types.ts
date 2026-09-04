@@ -4,10 +4,10 @@ export interface AnimalRow {
   id: string;
   name: string;
   species: string;
-  status: string;        // "Healthy" | "Needs Attention" | "Sick" | "Recovering"
-  lastFed: string;       // yyyy-mm-dd
-  lastVetVisit: string;  // yyyy-mm-dd
-  nextCareDue: string;   // yyyy-mm-dd — drives overdue/soon/later coloring
+  enclosure: string;
+  lastFed: string;      // yyyy-mm-dd
+  lastCleaned: string;  // yyyy-mm-dd — enclosure/substrate maintenance
+  nextCareDue: string;  // yyyy-mm-dd — drives overdue/soon/later coloring
   notes: string;
 }
 

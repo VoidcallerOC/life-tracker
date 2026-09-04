@@ -14,7 +14,7 @@ function collect(store: Store, clients: Client[]): DashboardItem[] {
       deadline: r.nextCareDue,
       notes: r.notes,
       priority: "",
-      stage: r.status,
+      stage: r.enclosure,
       source: "animals",
       sourceId: r.id,
     });

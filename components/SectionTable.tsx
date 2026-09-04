@@ -14,15 +14,13 @@ type ColDef = {
   primary?: boolean;
 };
 
-const ANIMAL_STATUS_OPTIONS = ["Healthy", "Needs Attention", "Sick", "Recovering"];
-
 const COLS: Record<SectionKey, ColDef[]> = {
   animals: [
     { key: "name", label: "Name", primary: true },
     { key: "species", label: "Species" },
-    { key: "status", label: "Status", kind: "select", options: ANIMAL_STATUS_OPTIONS },
+    { key: "enclosure", label: "Enclosure" },
     { key: "lastFed", label: "Last Fed", kind: "date" },
-    { key: "lastVetVisit", label: "Last Vet Visit", kind: "date" },
+    { key: "lastCleaned", label: "Last Cleaned", kind: "date" },
     { key: "nextCareDue", label: "Next Care Due", kind: "date" },
     { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
   ],
@@ -48,9 +46,9 @@ const BLANK: Record<SectionKey, () => any> = {
     id: rid(),
     name: "",
     species: "",
-    status: "Healthy",
+    enclosure: "",
     lastFed: "",
-    lastVetVisit: "",
+    lastCleaned: "",
     nextCareDue: "",
     notes: "",
   }),
