@@ -36,7 +36,7 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
   }, [store, ready]);
 
   function resetAll() {
-    if (!confirm("Clear ALL data? This can't be undone.")) return;
+    if (!confirm("Clear Animals, Content, and Personal data saved on this device? This can't be undone. Front Window clients are not affected.")) return;
     setStore(clearAll());
   }
 
@@ -49,15 +49,35 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-6">
-      <header className="flex items-center gap-4 flex-wrap">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Life OS</h1>
-          <p className="text-muted text-sm">
-            Personal tracker · sections saved to this browser · Front Window synced server-side
-          </p>
+    <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 space-y-5">
+      <header>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">Life OS</h1>
+            <p className="text-muted text-sm mt-0.5">
+              Animals · Content · Personal are saved on this device. Front Window is synced and shared.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-xs shrink-0">
+            <form action={logoutAction}>
+              <button type="submit" className="text-muted hover:text-text transition" title="Sign out">
+                Log out
+              </button>
+            </form>
+            <span className="text-border" aria-hidden>
+              |
+            </span>
+            <button
+              onClick={resetAll}
+              className="text-overdue/80 hover:text-overdue transition"
+              title="Wipe Animals, Content, and Personal data saved on this device. Front Window clients are not affected."
+            >
+              Reset local data
+            </button>
+          </div>
         </div>
-        <nav className="flex items-center gap-1 flex-wrap ml-auto">
+
+        <nav className="flex items-center gap-1.5 flex-wrap mt-4 pt-3 border-t border-border">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -68,20 +88,8 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
             </button>
           ))}
           <Link href="/clients" className="tab-btn">
-            Clients →
+            Full client list →
           </Link>
-          <button
-            onClick={resetAll}
-            className="tab-btn text-overdue hover:text-overdue"
-            title="Wipe localStorage data"
-          >
-            Reset
-          </button>
-          <form action={logoutAction}>
-            <button type="submit" className="tab-btn" title="Sign out">
-              Log out
-            </button>
-          </form>
         </nav>
       </header>
 

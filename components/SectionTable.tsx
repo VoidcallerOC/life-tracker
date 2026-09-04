@@ -11,11 +11,12 @@ type ColDef = {
   kind?: "text" | "date" | "select" | "textarea";
   options?: string[];
   className?: string;
+  primary?: boolean;
 };
 
 const COLS: Record<SectionKey, ColDef[]> = {
   animals: [
-    { key: "animalId", label: "Animal ID" },
+    { key: "animalId", label: "Animal ID", primary: true },
     { key: "species", label: "Species" },
     { key: "stage", label: "Stage", kind: "select", options: ["Active", "Pending", "Blocked", "Done"] },
     { key: "buyer", label: "Buyer" },
@@ -23,7 +24,7 @@ const COLS: Record<SectionKey, ColDef[]> = {
     { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
   ],
   content: [
-    { key: "task", label: "Task", className: "min-w-[200px]" },
+    { key: "task", label: "Task", className: "min-w-[200px]", primary: true },
     { key: "type", label: "Type" },
     { key: "deadline", label: "Deadline", kind: "date" },
     { key: "status", label: "Status" },
@@ -31,7 +32,7 @@ const COLS: Record<SectionKey, ColDef[]> = {
     { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
   ],
   personal: [
-    { key: "task", label: "Task", className: "min-w-[200px]" },
+    { key: "task", label: "Task", className: "min-w-[200px]", primary: true },
     { key: "category", label: "Category" },
     { key: "deadline", label: "Deadline", kind: "date" },
     { key: "status", label: "Status" },
@@ -45,6 +46,12 @@ const BLANK: Record<SectionKey, () => any> = {
   personal: () => ({ id: rid(), task: "", category: "", deadline: "", status: "", notes: "" }),
 };
 
+const ITEM_NOUN: Record<SectionKey, string> = {
+  animals: "animal",
+  content: "content item",
+  personal: "task",
+};
+
 export function SectionTable({
   section,
   store,
@@ -56,6 +63,7 @@ export function SectionTable({
 }) {
   const rows = store[section] as any[];
   const cols = COLS[section];
+  const noun = ITEM_NOUN[section];
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sorted = useMemo(() => {
@@ -98,12 +106,20 @@ export function SectionTable({
     setStore((s) => ({ ...s, [section]: [...(s[section] as any[]), ...imported] }));
   }
 
+  const empty = sorted.length === 0;
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <button onClick={add} className="tab-btn active">+ Add row</button>
-        <button onClick={download} className="tab-btn">Export CSV</button>
-        <button onClick={() => fileRef.current?.click()} className="tab-btn">Import CSV</button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={add} className="tab-btn active">
+          + Add {noun}
+        </button>
+        <button onClick={download} className="tab-btn">
+          Export CSV
+        </button>
+        <button onClick={() => fileRef.current?.click()} className="tab-btn">
+          Import CSV
+        </button>
         <input
           ref={fileRef}
           type="file"
@@ -115,53 +131,91 @@ export function SectionTable({
             e.currentTarget.value = "";
           }}
         />
-        <span className="text-muted text-xs ml-auto">{rows.length} row{rows.length === 1 ? "" : "s"}</span>
+        <span className="text-muted text-xs ml-auto">
+          {rows.length} {noun}
+          {rows.length === 1 ? "" : "s"}
+        </span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-panel">
-        <table className="grid">
-          <thead>
-            <tr>
-              {cols.map((c) => (
-                <th key={c.key} className={c.className}>{c.label}</th>
-              ))}
-              <th className="w-8" />
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.length === 0 && (
-              <tr>
-                <td colSpan={cols.length + 1} className="text-center text-muted py-6">
-                  No rows yet — add one, or import a CSV.
-                </td>
-              </tr>
-            )}
+      {empty ? (
+        <div className="rounded-lg border border-dashed border-border bg-panel px-4 py-8 text-center text-sm text-muted">
+          No {noun}s yet. Tap <span className="text-text">+ Add {noun}</span> above, or import a CSV.
+        </div>
+      ) : (
+        <>
+          {/* Mobile: stacked cards, one per row */}
+          <div className="md:hidden space-y-3">
             {sorted.map((row) => (
-              <tr key={row.id}>
-                {cols.map((c) => (
-                  <td key={c.key} className={c.className}>
-                    <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
-                    {c.kind === "date" && row[c.key] && (
-                      <div className="mt-1 pl-2">
-                        <DeadlineTag date={row[c.key]} />
-                      </div>
-                    )}
-                  </td>
-                ))}
-                <td>
+              <div key={row.id} className="rounded-lg border border-border bg-panel p-3 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium text-sm">
+                    {row[cols.find((c) => c.primary)?.key ?? cols[0].key] || `Untitled ${noun}`}
+                  </div>
                   <button
                     onClick={() => remove(row.id)}
-                    className="text-muted hover:text-overdue px-2"
-                    title="Delete row"
+                    className="text-muted hover:text-overdue px-1 -mt-1 -mr-1"
+                    title={`Delete this ${noun}`}
                   >
                     ×
                   </button>
-                </td>
-              </tr>
+                </div>
+                {cols.map((c) => (
+                  <div key={c.key}>
+                    <div className="text-[10px] uppercase tracking-wide text-muted mb-1">{c.label}</div>
+                    <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
+                    {c.kind === "date" && row[c.key] && (
+                      <div className="mt-1">
+                        <DeadlineTag date={row[c.key]} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-panel">
+            <table className="grid">
+              <thead>
+                <tr>
+                  {cols.map((c) => (
+                    <th key={c.key} className={c.className}>
+                      {c.label}
+                    </th>
+                  ))}
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((row) => (
+                  <tr key={row.id}>
+                    {cols.map((c) => (
+                      <td key={c.key} className={c.className}>
+                        <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
+                        {c.kind === "date" && row[c.key] && (
+                          <div className="mt-1 pl-2">
+                            <DeadlineTag date={row[c.key]} />
+                          </div>
+                        )}
+                      </td>
+                    ))}
+                    <td>
+                      <button
+                        onClick={() => remove(row.id)}
+                        className="text-muted hover:text-overdue px-2"
+                        title={`Delete this ${noun}`}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -178,7 +232,9 @@ function Cell({ col, value, onChange }: { col: ColDef; value: string; onChange: 
     return (
       <select className="cell-input" value={value} onChange={(e) => onChange(e.target.value)}>
         {col.options!.map((o) => (
-          <option key={o} value={o} className="bg-panel">{o}</option>
+          <option key={o} value={o} className="bg-panel">
+            {o}
+          </option>
         ))}
       </select>
     );

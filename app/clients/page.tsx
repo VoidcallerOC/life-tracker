@@ -39,15 +39,15 @@ export default async function ClientsPage() {
           </p>
           {!storageOk && isProd ? (
             <div className="mt-2 text-[11px] leading-4 text-overdue">
-              <p>No *_READ_WRITE_TOKEN env var was found in this deployment.</p>
-              {blobLikeEnv.length > 0 ? (
-                <p className="mt-1 text-muted">
-                  Detected token-like keys: {blobLikeEnv.join(", ")}
+              <p>Changes won&apos;t save until storage is connected.</p>
+              <details className="mt-1 text-muted">
+                <summary className="cursor-pointer select-none">Technical details</summary>
+                <p className="mt-1">No *_READ_WRITE_TOKEN env var was found in this deployment.</p>
+                {blobLikeEnv.length > 0 ? <p className="mt-1">Detected token-like keys: {blobLikeEnv.join(", ")}</p> : null}
+                <p className="mt-1">
+                  Fix in Vercel → Storage → Blob → Projects → Connect Project → life-tracker, then redeploy.
                 </p>
-              ) : null}
-              <p className="mt-1 text-muted">
-                Fix in Vercel → Storage → Blob → Projects → Connect Project → life-tracker, then redeploy.
-              </p>
+              </details>
             </div>
           ) : null}
         </div>

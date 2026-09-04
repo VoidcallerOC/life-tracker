@@ -72,10 +72,8 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted">
-          Front Window client pipeline · care plan $35/mo · live from /clients
-        </p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-muted">Front Window client pipeline · $35/mo care plan</p>
         <Link href="/clients" className="tab-btn active">
           Manage clients →
         </Link>
@@ -110,45 +108,70 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
         <Stat label="Total deposits" value={money(stats.deposit)} />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border bg-panel">
-        <table className="grid">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Status</th>
-              <th>Next action</th>
-              <th>Contact</th>
-              <th>$ Q / D / P</th>
-            </tr>
-          </thead>
-          <tbody>
-            {active.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-muted py-6">
-                  No active (Potential/Pending) clients — check /clients for the full list.
-                </td>
-              </tr>
-            )}
+      {active.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border bg-panel px-4 py-8 text-center text-sm text-muted">
+          No Potential, Pending, or Paid clients yet — check the full client list.
+        </div>
+      ) : (
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="md:hidden space-y-2">
             {active.map((c) => (
-              <tr key={c.id}>
-                <td className="px-2 py-2 font-medium">
-                  {c.client}
-                  {c.businessType && <div className="text-xs text-muted">{c.businessType}</div>}
-                </td>
-                <td className="px-2 py-2">
+              <div key={c.id} className="rounded-lg border border-border bg-panel p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-medium text-sm">{c.client}</div>
+                    {c.businessType && <div className="text-xs text-muted">{c.businessType}</div>}
+                  </div>
                   <span className={`pill ${STATUS_PILL[c.status]}`}>{c.status}</span>
-                </td>
-                <td className="px-2 py-2 text-muted">{c.nextAction || "—"}</td>
-                <td className="px-2 py-2 text-muted">{c.phone || c.contactName || "—"}</td>
-                <td className="px-2 py-2 text-muted">
-                  {c.quoted ? money(c.quoted) : "—"} / {c.deposit ? money(c.deposit) : "—"} /{" "}
-                  {c.paid ? money(c.paid) : "—"}
-                </td>
-              </tr>
+                </div>
+                {c.nextAction && <p className="text-sm text-muted mt-2">Next: {c.nextAction}</p>}
+                <div className="flex items-center justify-between mt-2 text-xs text-muted">
+                  <span>{c.phone || c.contactName || "—"}</span>
+                  <span>
+                    {c.quoted ? money(c.quoted) : "—"} / {c.deposit ? money(c.deposit) : "—"} /{" "}
+                    {c.paid ? money(c.paid) : "—"}
+                  </span>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-panel">
+            <table className="grid">
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Status</th>
+                  <th>Next action</th>
+                  <th>Contact</th>
+                  <th>$ Q / D / P</th>
+                </tr>
+              </thead>
+              <tbody>
+                {active.map((c) => (
+                  <tr key={c.id}>
+                    <td className="px-2 py-2 font-medium">
+                      {c.client}
+                      {c.businessType && <div className="text-xs text-muted">{c.businessType}</div>}
+                    </td>
+                    <td className="px-2 py-2">
+                      <span className={`pill ${STATUS_PILL[c.status]}`}>{c.status}</span>
+                    </td>
+                    <td className="px-2 py-2 text-muted">{c.nextAction || "—"}</td>
+                    <td className="px-2 py-2 text-muted">{c.phone || c.contactName || "—"}</td>
+                    <td className="px-2 py-2 text-muted">
+                      {c.quoted ? money(c.quoted) : "—"} / {c.deposit ? money(c.deposit) : "—"} /{" "}
+                      {c.paid ? money(c.paid) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   );
 }

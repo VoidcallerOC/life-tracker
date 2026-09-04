@@ -38,7 +38,7 @@ input {
 }
 
 .cell-input {
-  @apply w-full bg-transparent px-2 py-1 outline-none focus:ring-1 focus:ring-accent/60 rounded;
+  @apply w-full bg-panel2/50 border border-border/60 px-2 py-1.5 outline-none focus:ring-1 focus:ring-accent/60 focus:border-accent/60 rounded-md;
 }
 
 .tab-btn {
