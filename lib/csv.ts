@@ -46,7 +46,7 @@ export function parseCSV(text: string): RowMap[] {
 }
 
 export const HEADERS: Record<SectionKey, string[]> = {
-  animals: ["Animal ID", "Species", "Stage", "Buyer Info", "Sale Date", "Notes"],
+  animals: ["Name", "Species", "Status", "Last Fed", "Last Vet Visit", "Next Care Due", "Notes"],
   content: ["Task", "Type", "Deadline", "Status", "Platform", "Notes"],
   personal: ["Task", "Category", "Deadline", "Status", "Notes"],
 };
@@ -60,7 +60,15 @@ export function exportSection(section: SectionKey, store: Store): string {
 function rowToCsv(section: SectionKey, r: any): Record<string, unknown> {
   switch (section) {
     case "animals":
-      return { "Animal ID": r.animalId, "Species": r.species, "Stage": r.stage, "Buyer Info": r.buyer, "Sale Date": r.saleDate, "Notes": r.notes };
+      return {
+        "Name": r.name,
+        "Species": r.species,
+        "Status": r.status,
+        "Last Fed": r.lastFed,
+        "Last Vet Visit": r.lastVetVisit,
+        "Next Care Due": r.nextCareDue,
+        "Notes": r.notes,
+      };
     case "content":
       return { "Task": r.task, "Type": r.type, "Deadline": r.deadline, "Status": r.status, "Platform": r.platform, "Notes": r.notes };
     case "personal":
@@ -74,11 +82,12 @@ export function importSection(section: SectionKey, text: string): any[] {
     case "animals":
       return rows.map((r) => ({
         id: rid(),
-        animalId: r["Animal ID"] ?? "",
+        name: r["Name"] ?? "",
         species: r["Species"] ?? "",
-        stage: (r["Stage"] || "Active") as any,
-        buyer: r["Buyer Info"] ?? "",
-        saleDate: normalizeDate(r["Sale Date"]),
+        status: r["Status"] || "Healthy",
+        lastFed: normalizeDate(r["Last Fed"]),
+        lastVetVisit: normalizeDate(r["Last Vet Visit"]),
+        nextCareDue: normalizeDate(r["Next Care Due"]),
         notes: r["Notes"] ?? "",
       }));
     case "content":

@@ -10,11 +10,11 @@ function collect(store: Store, clients: Client[]): DashboardItem[] {
   for (const r of store.animals) {
     items.push({
       section: SECTION_LABEL.animals,
-      task: `${r.species || "Animal"} · ${r.animalId}`.trim(),
-      deadline: r.saleDate,
+      task: `${r.name || "Unnamed"} · ${r.species || "Animal"}`.trim(),
+      deadline: r.nextCareDue,
       notes: r.notes,
       priority: "",
-      stage: r.stage,
+      stage: r.status,
       source: "animals",
       sourceId: r.id,
     });

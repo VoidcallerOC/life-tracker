@@ -14,13 +14,16 @@ type ColDef = {
   primary?: boolean;
 };
 
+const ANIMAL_STATUS_OPTIONS = ["Healthy", "Needs Attention", "Sick", "Recovering"];
+
 const COLS: Record<SectionKey, ColDef[]> = {
   animals: [
-    { key: "animalId", label: "Animal ID", primary: true },
+    { key: "name", label: "Name", primary: true },
     { key: "species", label: "Species" },
-    { key: "stage", label: "Stage", kind: "select", options: ["Active", "Pending", "Blocked", "Done"] },
-    { key: "buyer", label: "Buyer" },
-    { key: "saleDate", label: "Sale Date", kind: "date" },
+    { key: "status", label: "Status", kind: "select", options: ANIMAL_STATUS_OPTIONS },
+    { key: "lastFed", label: "Last Fed", kind: "date" },
+    { key: "lastVetVisit", label: "Last Vet Visit", kind: "date" },
+    { key: "nextCareDue", label: "Next Care Due", kind: "date" },
     { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
   ],
   content: [
@@ -41,9 +44,27 @@ const COLS: Record<SectionKey, ColDef[]> = {
 };
 
 const BLANK: Record<SectionKey, () => any> = {
-  animals: () => ({ id: rid(), animalId: "", species: "", stage: "Active", buyer: "", saleDate: "", notes: "" }),
+  animals: () => ({
+    id: rid(),
+    name: "",
+    species: "",
+    status: "Healthy",
+    lastFed: "",
+    lastVetVisit: "",
+    nextCareDue: "",
+    notes: "",
+  }),
   content: () => ({ id: rid(), task: "", type: "", deadline: "", status: "", platform: "", notes: "" }),
   personal: () => ({ id: rid(), task: "", category: "", deadline: "", status: "", notes: "" }),
+};
+
+// The one "real" forward-looking deadline per section — drives sort order
+// and which date field gets the overdue/soon/later badge. Other date
+// fields (e.g. Last Fed, Last Vet Visit) are history, not deadlines.
+const SORT_KEY: Record<SectionKey, string> = {
+  animals: "nextCareDue",
+  content: "deadline",
+  personal: "deadline",
 };
 
 const ITEM_NOUN: Record<SectionKey, string> = {
@@ -66,13 +87,15 @@ export function SectionTable({
   const noun = ITEM_NOUN[section];
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const sortKey = SORT_KEY[section];
+
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
-      const da = a.deadline || a.saleDate || "9999-99-99";
-      const db = b.deadline || b.saleDate || "9999-99-99";
+      const da = a[sortKey] || "9999-99-99";
+      const db = b[sortKey] || "9999-99-99";
       return da.localeCompare(db);
     });
-  }, [rows]);
+  }, [rows, sortKey]);
 
   function update(id: string, key: string, value: string) {
     setStore((s) => ({
@@ -163,7 +186,7 @@ export function SectionTable({
                   <div key={c.key}>
                     <div className="text-[10px] uppercase tracking-wide text-muted mb-1">{c.label}</div>
                     <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
-                    {c.kind === "date" && row[c.key] && (
+                    {c.key === sortKey && row[c.key] && (
                       <div className="mt-1">
                         <DeadlineTag date={row[c.key]} />
                       </div>
@@ -193,7 +216,7 @@ export function SectionTable({
                     {cols.map((c) => (
                       <td key={c.key} className={c.className}>
                         <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
-                        {c.kind === "date" && row[c.key] && (
+                        {c.key === sortKey && row[c.key] && (
                           <div className="mt-1 pl-2">
                             <DeadlineTag date={row[c.key]} />
                           </div>

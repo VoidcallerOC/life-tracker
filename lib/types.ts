@@ -1,13 +1,13 @@
 export type Priority = "High" | "Medium" | "Low";
-export type Stage = "Active" | "Pending" | "Blocked" | "Done";
 
 export interface AnimalRow {
   id: string;
-  animalId: string;
+  name: string;
   species: string;
-  stage: Stage;
-  buyer: string;
-  saleDate: string;
+  status: string;        // "Healthy" | "Needs Attention" | "Sick" | "Recovering"
+  lastFed: string;       // yyyy-mm-dd
+  lastVetVisit: string;  // yyyy-mm-dd
+  nextCareDue: string;   // yyyy-mm-dd — drives overdue/soon/later coloring
   notes: string;
 }
 
