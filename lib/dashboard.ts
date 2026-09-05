@@ -3,11 +3,6 @@ import type { Client } from "@/lib/clients/types";
 import { SECTION_LABEL } from "@/lib/store";
 import { bucketFor } from "@/lib/deadlines";
 
-// The dashboard (and the daily summary) is a reminders + important-tasks
-// view, not a dump of every row in the app — so a row only qualifies if it
-// has a real deadline (a reminder) or is an active Forge client with a next
-// step (an important task). Undated husbandry rows and the cold Potential
-// pitch backlog are excluded.
 export function collectDashboardItems(store: Store, clients: Client[]): DashboardItem[] {
   const items: DashboardItem[] = [];
   for (const r of store.animals) {
@@ -30,7 +25,7 @@ export function collectDashboardItems(store: Store, clients: Client[]): Dashboar
       task: r.task,
       deadline: r.deadline,
       notes: r.notes,
-      priority: "",
+      priority: r.id.startsWith("prio-") ? "High" : "",
       stage: r.status,
       source: "content",
       sourceId: r.id,
@@ -43,14 +38,12 @@ export function collectDashboardItems(store: Store, clients: Client[]): Dashboar
       task: r.task,
       deadline: r.deadline,
       notes: r.notes,
-      priority: "",
+      priority: r.category === "Priority" || r.id.startsWith("prio-") ? "High" : "",
       stage: r.status,
       source: "personal",
       sourceId: r.id,
     });
   }
-  // Only Pending/Paid clients (active engagements) with a real next step —
-  // the Potential column is a cold-pitch backlog, not a reminder or task.
   for (const c of clients) {
     if (c.status !== "Pending" && c.status !== "Paid") continue;
     if (!c.nextAction.trim()) continue;
@@ -59,13 +52,18 @@ export function collectDashboardItems(store: Store, clients: Client[]): Dashboar
       task: c.client,
       deadline: "",
       notes: c.nextAction,
-      priority: "",
+      priority: c.nextAction.startsWith("#01") ? "High" : "",
       stage: c.status,
       source: "clients",
       sourceId: c.id,
     });
   }
-  return items.sort((a, b) => (a.deadline || "9999").localeCompare(b.deadline || "9999"));
+  return items.sort((a, b) => {
+    const rank = (p: string) => (p === "High" ? 0 : p === "Medium" ? 1 : 2);
+    const byP = rank(a.priority) - rank(b.priority);
+    if (byP !== 0) return byP;
+    return (a.deadline || "9999").localeCompare(b.deadline || "9999");
+  });
 }
 
 export interface DashboardStats {

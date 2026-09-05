@@ -5,6 +5,7 @@ import type { Client } from "@/lib/clients/types";
 import { collectDashboardItems, collectDashboardStats } from "@/lib/dashboard";
 import { bucketFor, bucketLabel, daysUntil, pillClass } from "@/lib/deadlines";
 import { dashboardToIcs, downloadIcs } from "@/lib/ics";
+import { Priorities } from "@/components/Priorities";
 
 export function Dashboard({
   store,
@@ -27,6 +28,8 @@ export function Dashboard({
 
   return (
     <div className="space-y-4">
+      <Priorities />
+
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <p className="text-sm text-muted">
           Dated items can be dropped into Apple Calendar / Google Calendar as an .ics file.

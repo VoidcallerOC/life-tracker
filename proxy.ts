@@ -3,14 +3,8 @@ import type { NextRequest } from "next/server";
 import { SESSION_COOKIE, isValidSession } from "./lib/auth";
 
 const LOGIN_ATTEMPT_LIMIT = 5;
-const LOGIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const LOGIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 
-// In-memory per-IP counter for failed login POSTs. Not distributed across
-// instances — this is a single-admin app behind a shared password, not a
-// multi-tenant service, so a per-instance limit is enough to stop a script
-// hammering the endpoint without adding an external Redis dependency. If
-// this ever needs to be bulletproof against a distributed attack, move the
-// counter to the same Blob/KV store the app already uses.
 const loginAttempts = new Map<string, { count: number; windowStart: number }>();
 
 function clientIp(request: NextRequest): string {
@@ -30,11 +24,6 @@ function isRateLimited(ip: string): boolean {
   return entry.count > LOGIN_ATTEMPT_LIMIT;
 }
 
-// CSP omits 'unsafe-eval' (production Next.js/React never calls eval; that's
-// only a dev-mode HMR need) but keeps 'unsafe-inline' for script-src, since
-// Next's App Router injects its own inline hydration scripts and this app
-// doesn't use a nonce pipeline. No inline style= attributes or third-party
-// image hosts exist in the app today, so style-src/img-src stay locked down.
 function withSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set(
     "Content-Security-Policy",
@@ -56,14 +45,12 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
+const TOKEN_GATED = new Set(["/api/summary", "/api/admin/clients", "/api/admin/store"]);
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // These routes authenticate themselves with the app password as a request
-  // token (see isAuthorizedRequest in lib/auth.ts) — scheduled automation
-  // can't do an interactive cookie login, so they're exempt from the
-  // session gate below.
-  if (pathname === "/api/summary" || pathname === "/api/admin/clients") {
+  if (TOKEN_GATED.has(pathname)) {
     return withSecurityHeaders(NextResponse.next());
   }
 
