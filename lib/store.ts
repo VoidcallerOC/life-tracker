@@ -22,7 +22,7 @@ export function seed(): Store {
     personal: [
       {
         id: rid(),
-        task: "Front Window / Harris DNS — Cloudflare nameserver flip",
+        task: "Forge / Harris DNS — Cloudflare nameserver flip",
         category: "Ops",
         deadline: "2026-09-04",
         status: "Active",

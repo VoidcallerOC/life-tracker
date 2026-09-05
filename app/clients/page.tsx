@@ -20,7 +20,7 @@ export default async function ClientsPage() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-            Front Window · Life OS
+            Forge · Life OS
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Clients</h1>
           <p className="mt-1 text-sm text-muted">

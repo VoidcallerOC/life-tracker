@@ -7,14 +7,14 @@ import type { Client } from "@/lib/clients/types";
 import { EMPTY, load, save, SECTION_LABEL, clearAll } from "@/lib/store";
 import { Dashboard } from "@/components/Dashboard";
 import { SectionTable } from "@/components/SectionTable";
-import { FrontWindowSummary } from "@/components/FrontWindowSummary";
+import { ForgeSummary } from "@/components/ForgeSummary";
 import { logoutAction } from "@/app/login/actions";
 
 type Tab = "dashboard" | "clients" | SectionKey;
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
-  { key: "clients", label: "Front Window" },
+  { key: "clients", label: "Forge" },
   { key: "animals", label: SECTION_LABEL.animals },
   { key: "content", label: SECTION_LABEL.content },
   { key: "personal", label: SECTION_LABEL.personal },
@@ -36,7 +36,7 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
   }, [store, ready]);
 
   function resetAll() {
-    if (!confirm("Clear Animals, Content, and Personal data saved on this device? This can't be undone. Front Window clients are not affected.")) return;
+    if (!confirm("Clear Animals, Content, and Personal data saved on this device? This can't be undone. Forge clients are not affected.")) return;
     setStore(clearAll());
   }
 
@@ -55,7 +55,7 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Life OS</h1>
             <p className="text-muted text-sm mt-0.5">
-              Animals · Content · Personal are saved on this device. Front Window is synced and shared.
+              Animals · Content · Personal are saved on this device. Forge is synced and shared.
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs shrink-0">
@@ -70,7 +70,7 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
             <button
               onClick={resetAll}
               className="text-overdue/80 hover:text-overdue transition"
-              title="Wipe Animals, Content, and Personal data saved on this device. Front Window clients are not affected."
+              title="Wipe Animals, Content, and Personal data saved on this device. Forge clients are not affected."
             >
               Reset local data
             </button>
@@ -96,7 +96,7 @@ export function LifeOS({ initialClients }: { initialClients: Client[] }) {
       {tab === "dashboard" ? (
         <Dashboard store={store} clients={initialClients} onJump={jump} />
       ) : tab === "clients" ? (
-        <FrontWindowSummary clients={initialClients} />
+        <ForgeSummary clients={initialClients} />
       ) : (
         <SectionTable
           section={tab as SectionKey}

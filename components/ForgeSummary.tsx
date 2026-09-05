@@ -29,7 +29,7 @@ const STATUS_PILL: Record<Client["status"], string> = {
   Lost: "border-border text-muted bg-panel2",
 };
 
-export function FrontWindowSummary({ clients }: { clients: Client[] }) {
+export function ForgeSummary({ clients }: { clients: Client[] }) {
   const stats = useMemo(() => {
     const now = new Date();
     const counts: Record<Client["status"], number> = { Potential: 0, Pending: 0, Paid: 0, Lost: 0 };
@@ -73,7 +73,7 @@ export function FrontWindowSummary({ clients }: { clients: Client[] }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm text-muted">Front Window client pipeline · $35/mo care plan</p>
+        <p className="text-sm text-muted">Forge client pipeline · $35/mo care plan</p>
         <Link href="/clients" className="tab-btn active">
           Manage clients →
         </Link>

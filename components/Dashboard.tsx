@@ -49,7 +49,7 @@ function collect(store: Store, clients: Client[]): DashboardItem[] {
     if (c.status === "Lost") continue;
     if (!c.nextAction.trim()) continue;
     items.push({
-      section: "Front Window",
+      section: "Forge",
       task: c.client,
       deadline: "",
       notes: c.nextAction,
@@ -97,7 +97,7 @@ export function Dashboard({
 
       {empty ? (
         <div className="rounded-lg border border-dashed border-border bg-panel px-4 py-8 text-center text-sm text-muted">
-          Nothing here yet. Add something in Animals, Content, or Personal — or set a Next Action on a Front Window
+          Nothing here yet. Add something in Animals, Content, or Personal — or set a Next Action on a Forge
           client — and it'll show up here.
         </div>
       ) : (
