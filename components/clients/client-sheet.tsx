@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { deleteClient } from "@/app/clients/actions";
 import { STATUSES, type Client } from "@/lib/clients/types";
 import { ContactActions } from "./contact-actions";
@@ -53,7 +52,6 @@ export function ClientSheet({
   onClose: () => void;
   onSaved?: (client: Client) => void;
 }) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -66,15 +64,23 @@ export function ClientSheet({
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
         body: JSON.stringify(payload),
       });
-      const json = (await res.json()) as { ok: boolean; client?: Client; error?: string };
+      const text = await res.text();
+      let json: { ok?: boolean; client?: Client; error?: string } = {};
+      try {
+        json = JSON.parse(text) as { ok?: boolean; client?: Client; error?: string };
+      } catch {
+        setError(`Save returned ${res.status}, not JSON. Hard-refresh and try again.`);
+        return;
+      }
       if (!res.ok || !json.ok || !json.client) {
         setError(json.error || `Save failed (${res.status})`);
         return;
       }
       onSaved?.(json.client);
-      router.refresh();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -161,7 +167,6 @@ export function ClientSheet({
                     setError(result.error);
                     return;
                   }
-                  router.refresh();
                   onClose();
                 }}
               >

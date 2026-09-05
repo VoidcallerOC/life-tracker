@@ -65,7 +65,7 @@ async function readFromBlob(): Promise<Client[] | null> {
       return parseClientsJson(text);
     }
   } catch {
-    // Blob may not exist yet — fall through to list().
+    // fall through
   }
 
   try {
@@ -84,23 +84,30 @@ async function readFromBlob(): Promise<Client[] | null> {
 }
 
 async function writeToBlob(clients: Client[]): Promise<void> {
+  const token = tokenValue();
   const body = JSON.stringify(clients, null, 2);
-  await put(BLOB_PATHNAME, body, {
+  const uploaded = await put(BLOB_PATHNAME, body, {
     access: "private",
     addRandomSuffix: false,
     allowOverwrite: true,
     cacheControlMaxAge: 0,
     contentType: "application/json",
-    token: tokenValue(),
+    token,
   });
+
+  const url = uploaded.downloadUrl || uploaded.url;
+  if (url) {
+    const written = await fetchBlobText(url, token);
+    if (!written || written.length < 2) {
+      throw new Error("Blob write did not read back");
+    }
+  }
 }
 
 export async function readClients(): Promise<Client[]> {
   if (blobEnabled()) {
     const existing = await readFromBlob();
     if (existing) return existing;
-    // Only seed when the blob truly does not exist. Never overwrite a
-    // read failure — that was wiping live edits after Save.
     return loadShippedSeed();
   }
 
@@ -109,7 +116,7 @@ export async function readClients(): Promise<Client[]> {
     const parsed = await parseClientsJson(raw);
     if (parsed) return parsed;
   } catch {
-    // No local file yet.
+    // no local file
   }
   return loadShippedSeed();
 }
