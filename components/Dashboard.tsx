@@ -132,44 +132,55 @@ export function Dashboard({
             })}
           </div>
 
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-panel">
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th>Section</th>
-                  <th>Task</th>
-                  <th>Deadline</th>
-                  <th>Priority</th>
-                  <th>Stage</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => {
-                  const b = bucketFor(it.deadline);
-                  const d = daysUntil(it.deadline);
-                  return (
-                    <tr
-                      key={`${it.source}:${it.sourceId}`}
-                      onClick={() => onJump(it.source)}
-                      className="cursor-pointer"
-                    >
-                      <td className="px-2 py-2 text-muted">{it.section}</td>
-                      <td className="px-2 py-2 font-medium">{it.task || "—"}</td>
-                      <td className="px-2 py-2">
-                        <span className={pillClass(b)}>
-                          {it.deadline || "—"}{it.deadline && ` · ${bucketLabel(b, d)}`}
-                        </span>
-                      </td>
-                      <td className={`px-2 py-2 priority-${it.priority}`}>{it.priority || "—"}</td>
-                      <td className="px-2 py-2 text-muted">{it.stage || "—"}</td>
-                      <td className="px-2 py-2 text-muted">{it.notes || ""}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {/* Desktop: CSS grid (not a <table>) so header and data columns are
+              guaranteed to share the same track — see SectionTable.tsx for
+              why plain <table> auto-layout can't be trusted here. */}
+          <div
+            className="hidden md:grid overflow-x-auto rounded-lg border border-border bg-panel text-sm"
+            style={{ gridTemplateColumns: "minmax(90px,0.8fr) minmax(160px,1.4fr) minmax(150px,1fr) minmax(70px,0.6fr) minmax(90px,0.8fr) minmax(160px,1.6fr)" }}
+          >
+            {["Section", "Task", "Deadline", "Priority", "Stage", "Notes"].map((label) => (
+              <div
+                key={label}
+                className="text-left text-xs uppercase tracking-wide text-muted font-medium px-2 py-2 border-b border-border sticky top-0 bg-panel z-10"
+              >
+                {label}
+              </div>
+            ))}
+
+            {items.map((it) => {
+              const b = bucketFor(it.deadline);
+              const d = daysUntil(it.deadline);
+              return (
+                <div
+                  key={`${it.source}:${it.sourceId}`}
+                  onClick={() => onJump(it.source)}
+                  className="contents cursor-pointer group"
+                >
+                  <div className="px-2 py-2 border-b border-border/60 text-muted group-hover:bg-white/[0.02]">
+                    {it.section}
+                  </div>
+                  <div className="px-2 py-2 border-b border-border/60 font-medium group-hover:bg-white/[0.02]">
+                    {it.task || "—"}
+                  </div>
+                  <div className="px-2 py-2 border-b border-border/60 group-hover:bg-white/[0.02]">
+                    <span className={pillClass(b)}>
+                      {it.deadline || "—"}
+                      {it.deadline && ` · ${bucketLabel(b, d)}`}
+                    </span>
+                  </div>
+                  <div className={`px-2 py-2 border-b border-border/60 priority-${it.priority} group-hover:bg-white/[0.02]`}>
+                    {it.priority || "—"}
+                  </div>
+                  <div className="px-2 py-2 border-b border-border/60 text-muted group-hover:bg-white/[0.02]">
+                    {it.stage || "—"}
+                  </div>
+                  <div className="px-2 py-2 border-b border-border/60 text-muted group-hover:bg-white/[0.02]">
+                    {it.notes || ""}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

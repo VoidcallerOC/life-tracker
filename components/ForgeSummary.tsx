@@ -137,38 +137,46 @@ export function ForgeSummary({ clients }: { clients: Client[] }) {
             ))}
           </div>
 
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-panel">
-            <table className="grid">
-              <thead>
-                <tr>
-                  <th>Client</th>
-                  <th>Status</th>
-                  <th>Next action</th>
-                  <th>Contact</th>
-                  <th>$ Q / D / P</th>
-                </tr>
-              </thead>
-              <tbody>
-                {active.map((c) => (
-                  <tr key={c.id}>
-                    <td className="px-2 py-2 font-medium">
-                      {c.client}
-                      {c.businessType && <div className="text-xs text-muted">{c.businessType}</div>}
-                    </td>
-                    <td className="px-2 py-2">
-                      <span className={`pill ${STATUS_PILL[c.status]}`}>{c.status}</span>
-                    </td>
-                    <td className="px-2 py-2 text-muted">{c.nextAction || "—"}</td>
-                    <td className="px-2 py-2 text-muted">{c.phone || c.contactName || "—"}</td>
-                    <td className="px-2 py-2 text-muted">
-                      {c.quoted ? money(c.quoted) : "—"} / {c.deposit ? money(c.deposit) : "—"} /{" "}
-                      {c.paid ? money(c.paid) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Desktop: CSS grid (not a <table>) so header and data columns are
+              guaranteed to share the same track — see SectionTable.tsx for
+              why plain <table> auto-layout can't be trusted here. */}
+          <div
+            className="hidden md:grid overflow-x-auto rounded-lg border border-border bg-panel text-sm"
+            style={{
+              gridTemplateColumns:
+                "minmax(140px,1.4fr) minmax(90px,0.7fr) minmax(160px,1.6fr) minmax(120px,1fr) minmax(140px,1fr)",
+            }}
+          >
+            {["Client", "Status", "Next action", "Contact", "$ Q / D / P"].map((label) => (
+              <div
+                key={label}
+                className="text-left text-xs uppercase tracking-wide text-muted font-medium px-2 py-2 border-b border-border sticky top-0 bg-panel z-10"
+              >
+                {label}
+              </div>
+            ))}
+
+            {active.map((c) => (
+              <div key={c.id} className="contents group">
+                <div className="px-2 py-2 border-b border-border/60 font-medium group-hover:bg-white/[0.02]">
+                  {c.client}
+                  {c.businessType && <div className="text-xs text-muted">{c.businessType}</div>}
+                </div>
+                <div className="px-2 py-2 border-b border-border/60 group-hover:bg-white/[0.02]">
+                  <span className={`pill ${STATUS_PILL[c.status]}`}>{c.status}</span>
+                </div>
+                <div className="px-2 py-2 border-b border-border/60 text-muted group-hover:bg-white/[0.02]">
+                  {c.nextAction || "—"}
+                </div>
+                <div className="px-2 py-2 border-b border-border/60 text-muted group-hover:bg-white/[0.02]">
+                  {c.phone || c.contactName || "—"}
+                </div>
+                <div className="px-2 py-2 border-b border-border/60 text-muted group-hover:bg-white/[0.02]">
+                  {c.quoted ? money(c.quoted) : "—"} / {c.deposit ? money(c.deposit) : "—"} /{" "}
+                  {c.paid ? money(c.paid) : "—"}
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}
