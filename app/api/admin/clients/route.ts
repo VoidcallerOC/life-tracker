@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedRequest } from "@/lib/auth";
+import { isStatus } from "@/lib/clients/types";
 import { readClients, writeClients } from "@/lib/clients/storage";
 
 export const dynamic = "force-dynamic";
 
-// One-off maintenance endpoint for editing the Forge pipeline outside the
-// browser UI (e.g. from an automated session with no way to do an
-// interactive cookie login or submit a form POST). GET-only by necessity —
-// the fetch tool available to that automation can't send a request body —
-// so an update is expressed as GET params rather than a PATCH body. Scoped
-// tightly on purpose: it can only set nextAction/notes on an existing
-// client, never create, delete, or touch money fields. Same auth as
-// /api/summary; see isAuthorizedRequest in lib/auth.ts.
 export async function GET(request: Request) {
   if (!isAuthorizedRequest(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -32,15 +25,35 @@ export async function GET(request: Request) {
 
   const nextAction = url.searchParams.get("nextAction");
   const notes = url.searchParams.get("notes");
-  if (nextAction === null && notes === null) {
+  const paidDate = url.searchParams.get("paidDate");
+  const paidRaw = url.searchParams.get("paid");
+  const statusRaw = url.searchParams.get("status");
+
+  const hasUpdate =
+    nextAction !== null ||
+    notes !== null ||
+    paidDate !== null ||
+    paidRaw !== null ||
+    statusRaw !== null;
+
+  if (!hasUpdate) {
     return NextResponse.json({ client: clients[idx] });
   }
 
-  const updated = {
-    ...clients[idx],
-    ...(nextAction !== null ? { nextAction } : {}),
-    ...(notes !== null ? { notes } : {}),
-  };
+  const updated = { ...clients[idx] };
+  if (nextAction !== null) updated.nextAction = nextAction;
+  if (notes !== null) updated.notes = notes;
+  if (paidDate !== null) updated.paidDate = paidDate;
+  if (paidRaw !== null) {
+    const cleaned = paidRaw.trim();
+    if (!cleaned) updated.paid = null;
+    else {
+      const n = Number(cleaned);
+      if (Number.isFinite(n)) updated.paid = n;
+    }
+  }
+  if (statusRaw !== null && isStatus(statusRaw)) updated.status = statusRaw;
+
   clients[idx] = updated;
   await writeClients(clients);
   return NextResponse.json({ client: updated });
