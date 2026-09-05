@@ -12,32 +12,41 @@ type ColDef = {
   options?: string[];
   className?: string;
   primary?: boolean;
+  // CSS grid track size for the desktop view. Dates need enough room for
+  // the native mm/dd/yyyy widget; notes gets more relative space.
+  width?: string;
 };
+
+const TEXT_WIDTH = "minmax(110px, 1fr)";
+const DATE_WIDTH = "minmax(150px, 1fr)";
+const NOTES_WIDTH = "minmax(220px, 2fr)";
+const PRIMARY_WIDTH = "minmax(160px, 1.4fr)";
+const DELETE_WIDTH = "2.25rem";
 
 const COLS: Record<SectionKey, ColDef[]> = {
   animals: [
-    { key: "name", label: "Name", primary: true },
-    { key: "species", label: "Species" },
-    { key: "enclosure", label: "Enclosure" },
-    { key: "lastFed", label: "Last Fed", kind: "date" },
-    { key: "lastCleaned", label: "Last Cleaned", kind: "date" },
-    { key: "nextCareDue", label: "Next Care Due", kind: "date" },
-    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
+    { key: "name", label: "Name", primary: true, width: PRIMARY_WIDTH },
+    { key: "species", label: "Species", width: TEXT_WIDTH },
+    { key: "enclosure", label: "Enclosure", width: TEXT_WIDTH },
+    { key: "lastFed", label: "Last Fed", kind: "date", width: DATE_WIDTH },
+    { key: "lastCleaned", label: "Last Cleaned", kind: "date", width: DATE_WIDTH },
+    { key: "nextCareDue", label: "Next Care Due", kind: "date", width: DATE_WIDTH },
+    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]", width: NOTES_WIDTH },
   ],
   content: [
-    { key: "task", label: "Task", className: "min-w-[200px]", primary: true },
-    { key: "type", label: "Type" },
-    { key: "deadline", label: "Deadline", kind: "date" },
-    { key: "status", label: "Status" },
-    { key: "platform", label: "Platform" },
-    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
+    { key: "task", label: "Task", primary: true, width: PRIMARY_WIDTH },
+    { key: "type", label: "Type", width: TEXT_WIDTH },
+    { key: "deadline", label: "Deadline", kind: "date", width: DATE_WIDTH },
+    { key: "status", label: "Status", width: TEXT_WIDTH },
+    { key: "platform", label: "Platform", width: TEXT_WIDTH },
+    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]", width: NOTES_WIDTH },
   ],
   personal: [
-    { key: "task", label: "Task", className: "min-w-[200px]", primary: true },
-    { key: "category", label: "Category" },
-    { key: "deadline", label: "Deadline", kind: "date" },
-    { key: "status", label: "Status" },
-    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]" },
+    { key: "task", label: "Task", primary: true, width: PRIMARY_WIDTH },
+    { key: "category", label: "Category", width: TEXT_WIDTH },
+    { key: "deadline", label: "Deadline", kind: "date", width: DATE_WIDTH },
+    { key: "status", label: "Status", width: TEXT_WIDTH },
+    { key: "notes", label: "Notes", kind: "textarea", className: "min-w-[240px]", width: NOTES_WIDTH },
   ],
 };
 
@@ -58,7 +67,7 @@ const BLANK: Record<SectionKey, () => any> = {
 
 // The one "real" forward-looking deadline per section — drives sort order
 // and which date field gets the overdue/soon/later badge. Other date
-// fields (e.g. Last Fed, Last Vet Visit) are history, not deadlines.
+// fields (e.g. Last Fed, Last Cleaned) are history, not deadlines.
 const SORT_KEY: Record<SectionKey, string> = {
   animals: "nextCareDue",
   content: "deadline",
@@ -86,6 +95,7 @@ export function SectionTable({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sortKey = SORT_KEY[section];
+  const gridTemplateColumns = `${cols.map((c) => c.width ?? TEXT_WIDTH).join(" ")} ${DELETE_WIDTH}`;
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -195,45 +205,53 @@ export function SectionTable({
             ))}
           </div>
 
-          {/* Desktop: table */}
-          <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-panel">
-            <table className="grid">
-              <thead>
-                <tr>
-                  {cols.map((c) => (
-                    <th key={c.key} className={c.className}>
-                      {c.label}
-                    </th>
-                  ))}
-                  <th className="w-8" />
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((row) => (
-                  <tr key={row.id}>
-                    {cols.map((c) => (
-                      <td key={c.key} className={c.className}>
-                        <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
-                        {c.key === sortKey && row[c.key] && (
-                          <div className="mt-1 pl-2">
-                            <DeadlineTag date={row[c.key]} />
-                          </div>
-                        )}
-                      </td>
-                    ))}
-                    <td>
-                      <button
-                        onClick={() => remove(row.id)}
-                        className="text-muted hover:text-overdue px-2"
-                        title={`Delete this ${noun}`}
-                      >
-                        ×
-                      </button>
-                    </td>
-                  </tr>
+          {/* Desktop: CSS grid, not a <table>. Header cells and data cells
+              are direct children of the same grid (row wrappers use
+              display:contents), so they always share identical column
+              tracks — a plain <table> lets width:100% form controls throw
+              off the browser's auto column sizing relative to the header
+              text, which is what caused headers to drift out of alignment
+              with their inputs. */}
+          <div
+            className="hidden md:grid overflow-x-auto rounded-lg border border-border bg-panel text-sm"
+            style={{ gridTemplateColumns }}
+          >
+            {cols.map((c) => (
+              <div
+                key={c.key}
+                className="text-left text-xs uppercase tracking-wide text-muted font-medium px-2 py-2 border-b border-border sticky top-0 bg-panel z-10"
+              >
+                {c.label}
+              </div>
+            ))}
+            <div className="border-b border-border sticky top-0 bg-panel z-10" />
+
+            {sorted.map((row) => (
+              <div key={row.id} className="contents group">
+                {cols.map((c) => (
+                  <div
+                    key={c.key}
+                    className="align-top px-1 py-1 border-b border-border/60 group-hover:bg-white/[0.02]"
+                  >
+                    <Cell col={c} value={row[c.key] ?? ""} onChange={(v) => update(row.id, c.key, v)} />
+                    {c.key === sortKey && row[c.key] && (
+                      <div className="mt-1 pl-2">
+                        <DeadlineTag date={row[c.key]} />
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+                <div className="px-1 py-1 border-b border-border/60 group-hover:bg-white/[0.02]">
+                  <button
+                    onClick={() => remove(row.id)}
+                    className="text-muted hover:text-overdue px-1"
+                    title={`Delete this ${noun}`}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </>
       )}
