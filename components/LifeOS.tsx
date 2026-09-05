@@ -36,9 +36,6 @@ export function LifeOS({
   const skipNextSave = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  // One-time migration: Animals/Content/Personal used to live only in this
-  // browser's localStorage. If the server has nothing yet but this browser
-  // does, push that data up so it becomes the synced copy everywhere.
   useEffect(() => {
     if (!isEmptyStore(initialStore)) return;
     try {
@@ -57,7 +54,6 @@ export function LifeOS({
     } catch {
       // Corrupt legacy data — nothing to migrate.
     }
-    // Only ever run once, right after mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -95,7 +91,9 @@ export function LifeOS({
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h1 className="text-xl font-semibold tracking-tight">Life OS</h1>
-            <p className="text-muted text-sm mt-0.5">Everything here is synced and shared across devices.</p>
+            <p className="text-muted text-sm mt-0.5">
+              Synced across devices. On phone: Share → Add to Home Screen.
+            </p>
           </div>
           <div className="flex items-center gap-3 text-xs shrink-0">
             <form action={logoutAction}>

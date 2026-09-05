@@ -1,13 +1,14 @@
 # Life OS
 
-Personal life tracker web app, ported from a Google Sheets "Life OS" setup.
+Personal tracker for Nick — Forge clients, animal care, content, and personal tasks.
+Live: https://life-tracker-orcin-nine.vercel.app/
 
 ## Sections
-- **Dashboard** — unified list of every task/deadline across sections, sorted by date.
-- **SaaS** — client projects with stage, deadline, follow-up date, contact, priority.
-- **Animals** — animal ID, species, stage, buyer, sale date.
-- **Content** — social/marketing tasks with platform.
-- **Personal** — general to-dos with category and status.
+- **Dashboard** — dated work across sections + Pending/Paid Forge next actions. Export `.ics` for calendar reminders.
+- **Forge** — client pipeline (Potential / Pending / Paid / Lost), $35/mo care plan MRR.
+- **Animals** — name, species, enclosure, last fed/cleaned, next care due.
+- **Content** — social/marketing tasks with platform + deadline.
+- **Personal** — general to-dos.
 
 ## Deadline colors
 - **Red** — overdue
@@ -15,9 +16,16 @@ Personal life tracker web app, ported from a Google Sheets "Life OS" setup.
 - **Green** — later
 
 ## Data
-Stored in your browser's `localStorage` under the key `life-os:v1`. Nothing is sent to a server.
+- Production: Vercel Blob (`clients.json` + `life-store.json`), private ACL.
+- Local: `data/clients.json` and `data/life-store.json`.
+- Auth: shared password via `AUTH_PASSWORD`.
+- If Animals/Content/Personal are empty on first load, a small starter set is written so the dashboard is not blank.
 
-Import / export CSV per section from the section's toolbar. Column names match the original sheet.
+## Setup
+1. Copy `.env.example` → `.env.local` and set `AUTH_PASSWORD`.
+2. Production: connect Vercel Blob to this project and redeploy. Confirm the storage pill on `/clients` says `Vercel Blob ✓`.
+3. On `/clients`, run **Set today's date** if Paid clients are missing `paidDate`.
+4. Phone: open the site → Share → Add to Home Screen.
 
 ## Dev
 ```bash

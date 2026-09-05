@@ -3,6 +3,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import type { Store } from "@/lib/types";
 import { blobEnabled, blobTokenValue as tokenValue } from "@/lib/blob";
+import { isEmptyStore } from "@/lib/store";
+import { starterStore } from "@/lib/lifeStore/seed";
 
 const BLOB_PATHNAME = "life-store.json";
 
@@ -69,19 +71,27 @@ async function writeToBlob(store: Store): Promise<void> {
 }
 
 export async function readStore(): Promise<Store> {
+  let store: Store = EMPTY_STORE;
+
   if (blobEnabled()) {
     const existing = await readFromBlob();
-    return existing ?? EMPTY_STORE;
+    store = existing ?? EMPTY_STORE;
+  } else {
+    try {
+      const raw = await fs.readFile(localDataPath(), "utf8");
+      const parsed = await parseStoreJson(raw);
+      if (parsed) store = parsed;
+    } catch {
+      // No local file yet — fall through.
+    }
   }
 
-  try {
-    const raw = await fs.readFile(localDataPath(), "utf8");
-    const parsed = await parseStoreJson(raw);
-    if (parsed) return parsed;
-  } catch {
-    // No local file yet — fall through to empty.
+  if (isEmptyStore(store)) {
+    store = starterStore();
+    await writeStore(store);
   }
-  return EMPTY_STORE;
+
+  return store;
 }
 
 export async function writeStore(store: Store): Promise<void> {

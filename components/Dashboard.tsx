@@ -4,6 +4,7 @@ import type { Store } from "@/lib/types";
 import type { Client } from "@/lib/clients/types";
 import { collectDashboardItems, collectDashboardStats } from "@/lib/dashboard";
 import { bucketFor, bucketLabel, daysUntil, pillClass } from "@/lib/deadlines";
+import { dashboardToIcs, downloadIcs } from "@/lib/ics";
 
 export function Dashboard({
   store,
@@ -16,11 +17,31 @@ export function Dashboard({
 }) {
   const items = useMemo(() => collectDashboardItems(store, clients), [store, clients]);
   const stats = useMemo(() => collectDashboardStats(items), [items]);
+  const dated = useMemo(() => items.filter((it) => it.deadline), [items]);
 
   const empty = items.length === 0;
 
+  function exportCalendar() {
+    downloadIcs("life-os.ics", dashboardToIcs(items));
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <p className="text-sm text-muted">
+          Dated items can be dropped into Apple Calendar / Google Calendar as an .ics file.
+        </p>
+        <button
+          type="button"
+          onClick={exportCalendar}
+          disabled={dated.length === 0}
+          className="tab-btn active disabled:opacity-40"
+          title={dated.length === 0 ? "Add a date first" : "Download calendar file"}
+        >
+          Export calendar (.ics)
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="Total items" value={stats.total} />
         <Stat label="Overdue" value={stats.overdue} tone="overdue" />
@@ -31,11 +52,10 @@ export function Dashboard({
       {empty ? (
         <div className="rounded-lg border border-dashed border-border bg-panel px-4 py-8 text-center text-sm text-muted">
           Nothing due right now. Set a date in Animals, Content, or Personal — or a Next Action on a Pending/Paid
-          Forge client — and it'll show up here.
+          Forge client — and it&apos;ll show up here.
         </div>
       ) : (
         <>
-          {/* Mobile: stacked cards */}
           <div className="md:hidden space-y-2">
             {items.map((it) => {
               const b = bucketFor(it.deadline);
@@ -65,9 +85,6 @@ export function Dashboard({
             })}
           </div>
 
-          {/* Desktop: CSS grid (not a <table>) so header and data columns are
-              guaranteed to share the same track — see SectionTable.tsx for
-              why plain <table> auto-layout can't be trusted here. */}
           <div
             className="hidden md:grid overflow-x-auto rounded-lg border border-border bg-panel text-sm"
             style={{ gridTemplateColumns: "minmax(90px,0.8fr) minmax(160px,1.4fr) minmax(150px,1fr) minmax(70px,0.6fr) minmax(90px,0.8fr) minmax(160px,1.6fr)" }}

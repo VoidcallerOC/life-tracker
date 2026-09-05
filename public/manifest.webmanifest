@@ -1,0 +1,11 @@
+{
+  "name": "Life OS",
+  "short_name": "Life OS",
+  "description": "Private tracker for Forge clients, animals, content, and personal tasks.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "lang": "en"
+}
