@@ -5,6 +5,7 @@ dist
 .env
 .env.local
 data/clients.local.json
+data/life-store.json
 .DS_Store
 *.log
 .vercel

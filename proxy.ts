@@ -59,6 +59,13 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // /api/summary authenticates itself with the app password as a request
+  // token (see app/api/summary/route.ts) — scheduled automation can't do an
+  // interactive cookie login, so it's exempt from the session gate below.
+  if (pathname === "/api/summary") {
+    return withSecurityHeaders(NextResponse.next());
+  }
+
   if (pathname === "/login") {
     if (request.method === "POST" && isRateLimited(clientIp(request))) {
       return withSecurityHeaders(
