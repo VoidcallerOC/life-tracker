@@ -5,9 +5,15 @@ import type { Client } from "@/lib/clients/types";
 import { SECTION_LABEL } from "@/lib/store";
 import { bucketFor, bucketLabel, daysUntil, pillClass } from "@/lib/deadlines";
 
+// The dashboard is a reminders + important-tasks view, not a dump of every
+// row in the app — so a row only qualifies if it has a real deadline (a
+// reminder) or is an active Forge client with a next step (an important
+// task). Undated husbandry rows and the cold Potential pitch backlog belong
+// in their own tabs, not here.
 function collect(store: Store, clients: Client[]): DashboardItem[] {
   const items: DashboardItem[] = [];
   for (const r of store.animals) {
+    if (!r.nextCareDue) continue;
     items.push({
       section: SECTION_LABEL.animals,
       task: `${r.name || "Unnamed"} · ${r.species || "Animal"}`.trim(),
@@ -20,6 +26,7 @@ function collect(store: Store, clients: Client[]): DashboardItem[] {
     });
   }
   for (const r of store.content) {
+    if (!r.deadline) continue;
     items.push({
       section: SECTION_LABEL.content,
       task: r.task,
@@ -32,6 +39,7 @@ function collect(store: Store, clients: Client[]): DashboardItem[] {
     });
   }
   for (const r of store.personal) {
+    if (!r.deadline) continue;
     items.push({
       section: SECTION_LABEL.personal,
       task: r.task,
@@ -43,10 +51,10 @@ function collect(store: Store, clients: Client[]): DashboardItem[] {
       sourceId: r.id,
     });
   }
-  // Only actionable clients: not Lost, with a real next step set — otherwise
-  // all 50+ CRM rows would flood a dashboard meant for "what needs attention."
+  // Only Pending/Paid clients (active engagements) with a real next step —
+  // the Potential column is a cold-pitch backlog, not a reminder or task.
   for (const c of clients) {
-    if (c.status === "Lost") continue;
+    if (c.status !== "Pending" && c.status !== "Paid") continue;
     if (!c.nextAction.trim()) continue;
     items.push({
       section: "Forge",
@@ -97,8 +105,8 @@ export function Dashboard({
 
       {empty ? (
         <div className="rounded-lg border border-dashed border-border bg-panel px-4 py-8 text-center text-sm text-muted">
-          Nothing here yet. Add something in Animals, Content, or Personal — or set a Next Action on a Forge
-          client — and it'll show up here.
+          Nothing due right now. Set a date in Animals, Content, or Personal — or a Next Action on a Pending/Paid
+          Forge client — and it'll show up here.
         </div>
       ) : (
         <>
