@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
-import { createClient, deleteClient, saveClient } from "@/app/clients/actions";
+import { deleteClient } from "@/app/clients/actions";
 import { STATUSES, type Client } from "@/lib/clients/types";
 import { ContactActions } from "./contact-actions";
 
@@ -43,19 +42,6 @@ function Field({
   );
 }
 
-function SaveButton({ label }: { label: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="h-12 flex-1 rounded-xl bg-emerald-400 text-base font-semibold text-zinc-950 disabled:opacity-60"
-    >
-      {pending ? "Saving…" : label}
-    </button>
-  );
-}
-
 export function ClientSheet({
   mode,
   client,
@@ -69,40 +55,45 @@ export function ClientSheet({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const action = mode === "edit" ? saveClient : createClient;
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(formData: FormData) {
+    setError(null);
+    setPending(true);
+    try {
+      const payload = Object.fromEntries(formData.entries());
+      const endpoint = mode === "edit" ? "/api/clients" : "/api/clients/create";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = (await res.json()) as { ok: boolean; client?: Client; error?: string };
+      if (!res.ok || !json.ok || !json.client) {
+        setError(json.error || `Save failed (${res.status})`);
+        return;
+      }
+      onSaved?.(json.client);
+      router.refresh();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950">
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="h-11 rounded-xl px-3 text-sm text-zinc-400"
-        >
+        <button type="button" onClick={onClose} className="h-11 rounded-xl px-3 text-sm text-zinc-400">
           Close
         </button>
-        <h2 className="text-base font-semibold">
-          {mode === "edit" ? "Client" : "Add client"}
-        </h2>
+        <h2 className="text-base font-semibold">{mode === "edit" ? "Client" : "Add client"}</h2>
         <span className="w-14" />
       </div>
-      <form
-        action={async (formData) => {
-          setError(null);
-          const result = await action(formData);
-          if (!result.ok) {
-            setError(result.error);
-            return;
-          }
-          onSaved?.(result.client);
-          router.refresh();
-          onClose();
-        }}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        {mode === "edit" && client ? (
-          <input type="hidden" name="id" value={client.id} />
-        ) : null}
+      <form action={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        {mode === "edit" && client ? <input type="hidden" name="id" value={client.id} /> : null}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6">
           {mode === "edit" && client ? <ContactActions client={client} /> : null}
           <Field label="Client" name="client" defaultValue={client?.client} placeholder="Business name" />
@@ -177,7 +168,13 @@ export function ClientSheet({
                 Delete
               </button>
             ) : null}
-            <SaveButton label={mode === "edit" ? "Save" : "Add client"} />
+            <button
+              type="submit"
+              disabled={pending}
+              className="h-12 flex-1 rounded-xl bg-emerald-400 text-base font-semibold text-zinc-950 disabled:opacity-60"
+            >
+              {pending ? "Saving…" : mode === "edit" ? "Save" : "Add client"}
+            </button>
           </div>
         </div>
       </form>

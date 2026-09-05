@@ -43,6 +43,15 @@ async function parseClientsJson(text: string): Promise<Client[] | null> {
   return normalizeClients(JSON.parse(text) as unknown);
 }
 
+async function fetchBlobText(url: string, token?: string): Promise<string | null> {
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) return null;
+  return res.text();
+}
+
 async function readFromBlob(): Promise<Client[] | null> {
   const token = tokenValue();
   try {
@@ -61,27 +70,26 @@ async function readFromBlob(): Promise<Client[] | null> {
 
   try {
     const { blobs } = await list({ prefix: BLOB_PATHNAME, limit: 20, token });
-    const match = blobs.find((b) => b.pathname === BLOB_PATHNAME);
+    const match =
+      blobs.find((b) => b.pathname === BLOB_PATHNAME) ??
+      blobs.find((b) => b.pathname.startsWith(BLOB_PATHNAME));
     if (!match) return null;
     const url = match.downloadUrl || match.url;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const text = await res.text();
+    const text = await fetchBlobText(url, token);
+    if (!text) return null;
     return parseClientsJson(text);
   } catch {
     return null;
   }
 }
 
-// Fails hard on any write error. The previous silent private→public fallback
-// could leak client PII if the private ACL API glitched. Better to surface
-// the error than to publish the CRM.
 async function writeToBlob(clients: Client[]): Promise<void> {
   const body = JSON.stringify(clients, null, 2);
   await put(BLOB_PATHNAME, body, {
     access: "private",
     addRandomSuffix: false,
     allowOverwrite: true,
+    cacheControlMaxAge: 0,
     contentType: "application/json",
     token: tokenValue(),
   });
@@ -90,10 +98,10 @@ async function writeToBlob(clients: Client[]): Promise<void> {
 export async function readClients(): Promise<Client[]> {
   if (blobEnabled()) {
     const existing = await readFromBlob();
-    if (existing && existing.length > 0) return existing;
-    const seed = await loadShippedSeed();
-    await writeToBlob(seed);
-    return seed;
+    if (existing) return existing;
+    // Only seed when the blob truly does not exist. Never overwrite a
+    // read failure — that was wiping live edits after Save.
+    return loadShippedSeed();
   }
 
   try {
@@ -101,16 +109,15 @@ export async function readClients(): Promise<Client[]> {
     const parsed = await parseClientsJson(raw);
     if (parsed) return parsed;
   } catch {
-    // Fall through to seed + write.
+    // No local file yet.
   }
-
-  const seed = await loadShippedSeed();
-  await fs.mkdir(path.dirname(localDataPath()), { recursive: true });
-  await fs.writeFile(localDataPath(), JSON.stringify(seed, null, 2));
-  return seed;
+  return loadShippedSeed();
 }
 
 export async function writeClients(clients: Client[]): Promise<void> {
+  if (clients.length === 0) {
+    throw new Error("Refusing to write an empty client list");
+  }
   if (blobEnabled()) {
     await writeToBlob(clients);
     return;
