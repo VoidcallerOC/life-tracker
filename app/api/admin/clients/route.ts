@@ -7,63 +7,61 @@ export const dynamic = "force-dynamic";
 
 const CLIENT_ID_PREFIX = "Client1-";
 
-// Contact sequence for Potential clients (Sep 2026 spitball).
 const POTENTIAL_QUEUE = [
-  "Client1-016", // 1 Salem
-  "Client1-009", // 2 Infinite Heroes
-  "Client1-010", // 3 IDeal Cards
-  "Client1-059", // 4 Comics and Collectibles Etc
-  "Client1-061", // 5 Imperial Gaming
-  "Client1-058", // 6 EC3
-  "Client1-011", // 7 XCLUSIVE STYLEZ
-  "Client1-063", // 8 Leather Jacket Games
-  "Client1-014", // 9 MapleHeart
-  "Client1-038", // 10 A Hero's Legacy
-  "Client1-039", // 11 Omni Cards
-  "Client1-042", // 12 Collectibles and Cards
-  "Client1-041", // 13 Calibrated Collectibles
-  "Client1-040", // 14 History On Paper
-  "Client1-013", // 15 Natural Selection Vintage
-  "Client1-015", // 16 Enchanted Violet
-  "Client1-019", // 17 East West Vintage
-  "Client1-018", // 18 Train Wreck
-  "Client1-017", // 19 4Ever Vintage
-  "Client1-064", // 20 Amazing Animalz
-  "Client1-066", // 21 Animal City
-  "Client1-065", // 22 CT Exotic Reptiles
-  "Client1-023", // 23 Connecticut Hobby
-  "Client1-022", // 24 White Rabbit
-  "Client1-026", // 25 Gizmo's
-  "Client1-027", // 26 Flea Market at the Crossing
-  "Client1-047", // 27 Plantsville Station
-  "Client1-046", // 28 Route 10 Trader
-  "Client1-044", // 29 Vintage From The Heart
-  "Client1-045", // 30 Vintage At Strandz
-  "Client1-043", // 31 Nick's Antiques
-  "Client1-030", // 32 Estate Antiques
-  "Client1-048", // 33 Sirko's
-  "Client1-049", // 34 Country Peddler
-  "Client1-050", // 35 Watertown Antiques
-  "Client1-051", // 36 Unique Antiques
-  "Client1-052", // 37 P M Crafts
-  "Client1-028", // 38 Smith Cycles
-  "Client1-031", // 39 Renaissance Cyclery
-  "Client1-056", // 40 Smokin Joe's
-  "Client1-057", // 41 J P Cycles
-  "Client1-032", // 42 Wojtusik's
-  "Client1-033", // 43 Tommy's Place
-  "Client1-034", // 44 Crown Upholstery
-  "Client1-035", // 45 South Side Meat
-  "Client1-036", // 46 CMH Small Engine
-  "Client1-053", // 47 Broad St Pawn
-  "Client1-054", // 48 J & J Pawn
-  "Client1-055", // 49 Tri-City Trading
-  "Client1-060", // 50 Card Catcher — verify exists
-  "Client1-062", // 51 Alternate Universe — skip unless asked
-  "Client1-067", // 52 A to Z Pet Shop — skip unless asked
-  "Client1-020", // 53 Xtreme Concepts — mall
-  "Client1-024", // 54 HobbyTown Westfarms
-  "Client1-025", // 55 Musical Expressions
+  "Client1-016",
+  "Client1-009",
+  "Client1-010",
+  "Client1-059",
+  "Client1-061",
+  "Client1-058",
+  "Client1-011",
+  "Client1-063",
+  "Client1-014",
+  "Client1-038",
+  "Client1-039",
+  "Client1-042",
+  "Client1-041",
+  "Client1-040",
+  "Client1-013",
+  "Client1-015",
+  "Client1-019",
+  "Client1-018",
+  "Client1-017",
+  "Client1-064",
+  "Client1-066",
+  "Client1-065",
+  "Client1-023",
+  "Client1-022",
+  "Client1-026",
+  "Client1-027",
+  "Client1-047",
+  "Client1-046",
+  "Client1-044",
+  "Client1-045",
+  "Client1-043",
+  "Client1-030",
+  "Client1-048",
+  "Client1-049",
+  "Client1-050",
+  "Client1-051",
+  "Client1-052",
+  "Client1-028",
+  "Client1-031",
+  "Client1-056",
+  "Client1-057",
+  "Client1-032",
+  "Client1-033",
+  "Client1-034",
+  "Client1-035",
+  "Client1-036",
+  "Client1-053",
+  "Client1-054",
+  "Client1-055",
+  "Client1-062",
+  "Client1-067",
+  "Client1-020",
+  "Client1-024",
+  "Client1-025",
 ];
 
 function nextClientId(clients: Client[]): string {
@@ -91,7 +89,17 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const clients = await readClients();
+  let clients = await readClients();
+
+  if (url.searchParams.get("delete") === "1") {
+    const deleteId = url.searchParams.get("id");
+    if (!deleteId) return NextResponse.json({ error: "id required" }, { status: 400 });
+    const existing = clients.find((c) => c.id === deleteId);
+    if (!existing) return NextResponse.json({ error: "client not found" }, { status: 404 });
+    clients = clients.filter((c) => c.id !== deleteId);
+    await writeClients(clients);
+    return NextResponse.json({ ok: true, deleted: existing.client, id: deleteId });
+  }
 
   if (url.searchParams.get("applyQueue") === "1") {
     const byId = new Map(clients.map((c) => [c.id, c]));
