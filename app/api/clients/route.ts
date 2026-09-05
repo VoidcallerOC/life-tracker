@@ -6,8 +6,12 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 function money(v: unknown): number | null {
-  if (v == null || v === "") return null;
-  const n = Number(String(v).replace(/[$,]/g, ""));
+  if (v == null) return null;
+  const raw = String(v).trim();
+  if (!raw) return null;
+  const match = raw.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -74,6 +78,7 @@ export async function POST(request: Request) {
     await writeClients(clients);
     console.info("saved client", {
       id: next.id,
+      paidRaw: body.paid,
       paid: next.paid,
       paidDate: next.paidDate,
       nextAction: next.nextAction,
