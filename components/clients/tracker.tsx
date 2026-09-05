@@ -152,6 +152,16 @@ export function Tracker({ clients }: { clients: Client[] }) {
     );
   }
 
+  function handleSaved(saved: Client) {
+    setLocalClients((current) => {
+      const idx = current.findIndex((c) => c.id === saved.id);
+      if (idx === -1) return [saved, ...current];
+      const next = current.slice();
+      next[idx] = { ...current[idx], ...saved, contacted: current[idx].contacted };
+      return next;
+    });
+  }
+
   const counts = useMemo(() => {
     const map: Record<Status, number> = { Potential: 0, Pending: 0, Paid: 0, Lost: 0 };
     for (const c of localClients) map[c.status] += 1;
@@ -260,9 +270,16 @@ export function Tracker({ clients }: { clients: Client[] }) {
       )}
 
       {editing ? (
-        <ClientSheet mode="edit" client={editing} onClose={() => setEditing(null)} />
+        <ClientSheet
+          mode="edit"
+          client={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
       ) : null}
-      {creating ? <ClientSheet mode="create" onClose={() => setCreating(false)} /> : null}
+      {creating ? (
+        <ClientSheet mode="create" onClose={() => setCreating(false)} onSaved={handleSaved} />
+      ) : null}
       {bulk ? <BulkSheet onClose={() => setBulk(false)} /> : null}
     </div>
   );

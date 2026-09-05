@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { createClient, deleteClient, saveClient } from "@/app/clients/actions";
 import { STATUSES, type Client } from "@/lib/clients/types";
 import { ContactActions } from "./contact-actions";
@@ -58,11 +60,15 @@ export function ClientSheet({
   mode,
   client,
   onClose,
+  onSaved,
 }: {
   mode: "edit" | "create";
   client?: Client;
   onClose: () => void;
+  onSaved?: (client: Client) => void;
 }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
   const action = mode === "edit" ? saveClient : createClient;
 
   return (
@@ -82,7 +88,14 @@ export function ClientSheet({
       </div>
       <form
         action={async (formData) => {
-          await action(formData);
+          setError(null);
+          const result = await action(formData);
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          onSaved?.(result.client);
+          router.refresh();
           onClose();
         }}
         className="flex min-h-0 flex-1 flex-col"
@@ -143,22 +156,29 @@ export function ClientSheet({
           <Field label="Live URL" name="liveUrl" defaultValue={client?.liveUrl} placeholder="https://" inputMode="url" />
           <Field label="Domain" name="domain" defaultValue={client?.domain} />
         </div>
-        <div className="flex gap-2 border-t border-zinc-800 px-4 py-3">
-          {mode === "edit" && client ? (
-            <button
-              type="button"
-              className="h-12 rounded-xl border border-zinc-800 px-4 text-sm text-rose-400"
-              onClick={async () => {
-                if (confirm("Delete this client?")) {
-                  await deleteClient(client.id);
+        <div className="border-t border-zinc-800 px-4 py-3 space-y-2">
+          {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+          <div className="flex gap-2">
+            {mode === "edit" && client ? (
+              <button
+                type="button"
+                className="h-12 rounded-xl border border-zinc-800 px-4 text-sm text-rose-400"
+                onClick={async () => {
+                  if (!confirm("Delete this client?")) return;
+                  const result = await deleteClient(client.id);
+                  if (!result.ok) {
+                    setError(result.error);
+                    return;
+                  }
+                  router.refresh();
                   onClose();
-                }
-              }}
-            >
-              Delete
-            </button>
-          ) : null}
-          <SaveButton label={mode === "edit" ? "Save" : "Add client"} />
+                }}
+              >
+                Delete
+              </button>
+            ) : null}
+            <SaveButton label={mode === "edit" ? "Save" : "Add client"} />
+          </div>
         </div>
       </form>
     </div>
