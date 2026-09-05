@@ -1,19 +1,10 @@
 import { NextResponse } from "next/server";
 import { isStatus, type Client } from "@/lib/clients/types";
+import { mergeMoneyNote, parseMoney } from "@/lib/clients/money";
 import { readClients, writeClients } from "@/lib/clients/storage";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function money(v: unknown): number | null {
-  if (v == null) return null;
-  const raw = String(v).trim();
-  if (!raw) return null;
-  const match = raw.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const n = Number(match[0]);
-  return Number.isFinite(n) ? n : null;
-}
 
 function str(v: unknown): string {
   return String(v ?? "").trim();
@@ -21,6 +12,16 @@ function str(v: unknown): string {
 
 function asClient(body: Record<string, unknown>, previous: Client): Client {
   const statusRaw = str(body.status) || previous.status;
+  let notes = Object.prototype.hasOwnProperty.call(body, "notes") ? str(body.notes) : previous.notes;
+  if (Object.prototype.hasOwnProperty.call(body, "quoted")) {
+    notes = mergeMoneyNote(notes, "Quoted", body.quoted);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "deposit")) {
+    notes = mergeMoneyNote(notes, "Deposit", body.deposit);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "paid")) {
+    notes = mergeMoneyNote(notes, "Paid", body.paid);
+  }
   return {
     ...previous,
     client: str(body.client) || previous.client,
@@ -34,9 +35,9 @@ function asClient(body: Record<string, unknown>, previous: Client): Client {
     phone: Object.prototype.hasOwnProperty.call(body, "phone") ? str(body.phone) : previous.phone,
     email: Object.prototype.hasOwnProperty.call(body, "email") ? str(body.email) : previous.email,
     address: Object.prototype.hasOwnProperty.call(body, "address") ? str(body.address) : previous.address,
-    quoted: Object.prototype.hasOwnProperty.call(body, "quoted") ? money(body.quoted) : previous.quoted,
-    deposit: Object.prototype.hasOwnProperty.call(body, "deposit") ? money(body.deposit) : previous.deposit,
-    paid: Object.prototype.hasOwnProperty.call(body, "paid") ? money(body.paid) : previous.paid,
+    quoted: Object.prototype.hasOwnProperty.call(body, "quoted") ? parseMoney(body.quoted) : previous.quoted,
+    deposit: Object.prototype.hasOwnProperty.call(body, "deposit") ? parseMoney(body.deposit) : previous.deposit,
+    paid: Object.prototype.hasOwnProperty.call(body, "paid") ? parseMoney(body.paid) : previous.paid,
     paidDate: Object.prototype.hasOwnProperty.call(body, "paidDate") ? str(body.paidDate) : previous.paidDate,
     githubRepo: Object.prototype.hasOwnProperty.call(body, "githubRepo")
       ? str(body.githubRepo)
@@ -46,7 +47,7 @@ function asClient(body: Record<string, unknown>, previous: Client): Client {
     nextAction: Object.prototype.hasOwnProperty.call(body, "nextAction")
       ? str(body.nextAction)
       : previous.nextAction,
-    notes: Object.prototype.hasOwnProperty.call(body, "notes") ? str(body.notes) : previous.notes,
+    notes,
     lastContacted: Object.prototype.hasOwnProperty.call(body, "lastContacted")
       ? str(body.lastContacted)
       : previous.lastContacted,
