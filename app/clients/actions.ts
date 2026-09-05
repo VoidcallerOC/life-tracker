@@ -7,6 +7,8 @@ import { readClients, writeClients, resetToShippedSeed } from "@/lib/clients/sto
 const ROUTE = "/clients";
 const CLIENT_ID_PREFIX = "Client1-";
 
+export type SaveResult = { ok: true; client: Client } | { ok: false; error: string };
+
 function nextClientId(clients: Client[]): string {
   const used = new Set(clients.map((client) => client.id));
   let sequence = 1;
@@ -60,44 +62,59 @@ function clientFromForm(formData: FormData, id: string): Client {
   };
 }
 
-export async function saveClient(formData: FormData) {
-  const id = field(formData, "id");
-  if (!id) return;
-  const submitted = clientFromForm(formData, id);
-  if (!submitted.client) return;
-  const clients = await readClients();
-  const idx = clients.findIndex((c) => c.id === id);
-  if (idx === -1) {
-    clients.unshift(submitted);
-  } else {
-    clients[idx] = formData.has("contacted")
-      ? submitted
-      : { ...submitted, contacted: clients[idx].contacted };
-  }
-  await writeClients(clients);
+function revalidateClientPages() {
   revalidatePath(ROUTE);
+  revalidatePath("/");
 }
 
-export async function createClient(formData: FormData) {
-  const clients = await readClients();
-  const id = nextClientId(clients);
-  const next = clientFromForm(formData, id);
-  if (!next.client) return;
-  clients.unshift(next);
-  await writeClients(clients);
-  revalidatePath(ROUTE);
+export async function saveClient(formData: FormData): Promise<SaveResult> {
+  const id = field(formData, "id");
+  if (!id) return { ok: false, error: "Missing client id." };
+  const submitted = clientFromForm(formData, id);
+  if (!submitted.client) return { ok: false, error: "Client name is required." };
+
+  try {
+    const clients = await readClients();
+    const idx = clients.findIndex((c) => c.id === id);
+    if (idx === -1) {
+      clients.unshift(submitted);
+    } else {
+      clients[idx] = formData.has("contacted")
+        ? submitted
+        : { ...submitted, contacted: clients[idx].contacted };
+    }
+    await writeClients(clients);
+    revalidateClientPages();
+    return { ok: true, client: submitted };
+  } catch (error) {
+    console.error("saveClient failed", error);
+    return { ok: false, error: "Storage write failed. Check Vercel Blob." };
+  }
+}
+
+export async function createClient(formData: FormData): Promise<SaveResult> {
+  const submittedName = field(formData, "client");
+  if (!submittedName) return { ok: false, error: "Client name is required." };
+
+  try {
+    const clients = await readClients();
+    const id = nextClientId(clients);
+    const next = clientFromForm(formData, id);
+    clients.unshift(next);
+    await writeClients(clients);
+    revalidateClientPages();
+    return { ok: true, client: next };
+  } catch (error) {
+    console.error("createClient failed", error);
+    return { ok: false, error: "Storage write failed. Check Vercel Blob." };
+  }
 }
 
 export async function reseedFromRepo() {
   await resetToShippedSeed();
-  revalidatePath(ROUTE);
+  revalidateClientPages();
 }
 
-// One-time convenience: stamps today's date on Paid clients that have a
-// paid amount but no Paid Date yet, so "Paid this month" isn't stuck at $0
-// forever. This is an approximation, not real payment history — it marks
-// everything backfilled as paid "today" regardless of when it actually
-// happened. Never overwrites a date that's already set.
 export async function backfillPaidDates(): Promise<number> {
   const today = new Date().toISOString().slice(0, 10);
   const clients = await readClients();
@@ -111,8 +128,7 @@ export async function backfillPaidDates(): Promise<number> {
   });
   if (count > 0) {
     await writeClients(next);
-    revalidatePath(ROUTE);
-    revalidatePath("/");
+    revalidateClientPages();
   }
   return count;
 }
@@ -126,7 +142,7 @@ export async function setStatus(id: string, status: Status): Promise<boolean> {
     if (idx === -1) return false;
     clients[idx] = { ...clients[idx], status };
     await writeClients(clients);
-    revalidatePath(ROUTE);
+    revalidateClientPages();
     return true;
   } catch (error) {
     console.error("Unable to persist client status", error);
@@ -143,7 +159,7 @@ export async function setContacted(id: string, contacted: boolean): Promise<bool
     if (idx === -1) return false;
     clients[idx] = { ...clients[idx], contacted };
     await writeClients(clients);
-    revalidatePath(ROUTE);
+    revalidateClientPages();
     return true;
   } catch (error) {
     console.error("Unable to persist contacted state", error);
@@ -151,11 +167,19 @@ export async function setContacted(id: string, contacted: boolean): Promise<bool
   }
 }
 
-export async function deleteClient(id: string) {
-  if (!id) return;
-  const clients = await readClients();
-  await writeClients(clients.filter((c) => c.id !== id));
-  revalidatePath(ROUTE);
+export async function deleteClient(id: string): Promise<SaveResult> {
+  if (!id) return { ok: false, error: "Missing client id." };
+  try {
+    const clients = await readClients();
+    const existing = clients.find((c) => c.id === id);
+    if (!existing) return { ok: false, error: "Client not found." };
+    await writeClients(clients.filter((c) => c.id !== id));
+    revalidateClientPages();
+    return { ok: true, client: existing };
+  } catch (error) {
+    console.error("deleteClient failed", error);
+    return { ok: false, error: "Storage write failed. Check Vercel Blob." };
+  }
 }
 
 function parseBulkNames(text: string): string[] {
@@ -190,5 +214,5 @@ export async function bulkAdd(formData: FormData) {
   }
   if (added.length === 0) return;
   await writeClients([...added, ...clients]);
-  revalidatePath(ROUTE);
+  revalidateClientPages();
 }
