@@ -1,3 +1,5 @@
+import type { BlobAccessType, GetBlobResult, PutBlobResult } from "@vercel/blob";
+
 // Shared Vercel Blob token detection, used by every server-side JSON store
 // in this app (clients, and the Animals/Content/Personal life store).
 //
@@ -51,4 +53,49 @@ export function blobTokenName(): string | null {
 
 export function blobTokenValue(): string | undefined {
   return detectBlobToken()?.value;
+}
+
+export function blobAccessMode(): BlobAccessType {
+  const raw = process.env.BLOB_ACCESS_MODE?.trim().toLowerCase();
+  if (!raw) {
+    return "private";
+  }
+  if (raw !== "private" && raw !== "public") {
+    throw new Error("BLOB_ACCESS_MODE must be set to private or public for the canonical client store");
+  }
+  return raw;
+}
+
+export function productionStorageRequired(): boolean {
+  return process.env.VERCEL === "1" || process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
+}
+
+export function assertBlobConfigured(): void {
+  if (!blobEnabled() && productionStorageRequired()) {
+    throw new Error(
+      "Canonical client storage is not configured. Set LIFE_TRACKER_BLOB_READ_WRITE_TOKEN (or BLOB_READ_WRITE_TOKEN) to the connected store token and redeploy.",
+    );
+  }
+  if (productionStorageRequired()) blobAccessMode();
+}
+
+export async function getBlob(pathname: string): Promise<GetBlobResult | null> {
+  const { get } = await import("@vercel/blob");
+  return get(pathname, {
+    access: blobAccessMode(),
+    useCache: false,
+    token: blobTokenValue(),
+  });
+}
+
+export async function putBlob(pathname: string, body: string): Promise<PutBlobResult> {
+  const { put } = await import("@vercel/blob");
+  return put(pathname, body, {
+    access: blobAccessMode(),
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+    contentType: "application/json",
+    token: blobTokenValue(),
+  });
 }
