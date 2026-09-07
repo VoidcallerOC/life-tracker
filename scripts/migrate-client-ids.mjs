@@ -1,39 +1,29 @@
+import { promises as fs } from "node:fs";
 import { get, put } from "@vercel/blob";
 
 const LIVE_PATH = "clients.json";
 const MIGRATED_PATH = "clients.migrated.json";
 const PREFIX = "Client1-";
 const APPLY = process.argv.includes("--apply");
-const token = Object.entries(process.env)
-  .filter(([name]) => name === "BLOB_READ_WRITE_TOKEN" || name.endsWith("_READ_WRITE_TOKEN"))
-  .map(([, value]) => value?.split(/\r?\n/).map((line) => line.trim()).find((line) => line.startsWith("vercel_blob_")))
-  .find((value) => value?.startsWith("vercel_blob_"));
-const configuredAccess = process.env.BLOB_ACCESS_MODE?.trim().toLowerCase() === "public" ? "public" : "private";
-const accessModes = [configuredAccess, configuredAccess === "private" ? "public" : "private"];
+const SOURCE_ARG = process.argv.find((arg) => arg.startsWith("--source="))?.slice("--source=".length) ?? "data/clients.json";
+const token = (process.env.LIFE_TRACKER_BLOB_READ_WRITE_TOKEN ?? process.env.BLOB_READ_WRITE_TOKEN)?.match(/vercel_blob_[A-Za-z0-9_-]+/)?.[0];
+const access = process.env.BLOB_ACCESS_MODE?.trim().toLowerCase();
 
-if (!token) throw new Error("A *_READ_WRITE_TOKEN environment variable must contain a valid Vercel Blob token");
+if (!token?.startsWith("vercel_blob_")) throw new Error("Set LIFE_TRACKER_BLOB_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN to the canonical Blob store token");
+if (access !== "private" && access !== "public") throw new Error("Set BLOB_ACCESS_MODE to private or public for the canonical Blob store");
 
 function idFor(index) {
   return `${PREFIX}${String(index + 1).padStart(3, "0")}`;
 }
 
-function isAccessModeError(error) {
-  return /access mode|public.*private|private.*public|store.*(public|private)/i.test(String(error?.message ?? error));
+async function readBlob(pathname) {
+  const result = await get(pathname, { access, useCache: false, token });
+  if (!result?.stream) return null;
+  return JSON.parse(await new Response(result.stream).text());
 }
 
-async function readBlob(pathname) {
-  let lastError;
-  for (const access of accessModes) {
-    try {
-      const result = await get(pathname, { access, useCache: false, token });
-      if (!result?.stream) return null;
-      return JSON.parse(await new Response(result.stream).text());
-    } catch (error) {
-      lastError = error;
-      if (!isAccessModeError(error)) throw error;
-    }
-  }
-  throw lastError;
+async function readSource() {
+  return JSON.parse(await fs.readFile(SOURCE_ARG, "utf8"));
 }
 
 function validateClients(value, label) {
@@ -57,56 +47,48 @@ function assertEquivalent(before, after) {
   });
 }
 
-async function writePrivate(pathname, value) {
-  let lastError;
-  for (const access of accessModes) {
-    try {
-      return await put(pathname, JSON.stringify(value, null, 2), {
-        access,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        cacheControlMaxAge: 0,
-        contentType: "application/json",
-        token,
-      });
-    } catch (error) {
-      lastError = error;
-      if (!isAccessModeError(error)) throw error;
-    }
-  }
-  throw lastError;
+async function writeBlob(pathname, value) {
+  return put(pathname, JSON.stringify(value, null, 2), {
+    access,
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 0,
+    contentType: "application/json",
+    token,
+  });
 }
 
-const original = await readBlob(LIVE_PATH);
-if (!original) throw new Error(`Blob ${LIVE_PATH} was not found in access modes: ${accessModes.join(", ")}`);
-validateClients(original, "Live Blob data");
+const remote = await readBlob(LIVE_PATH);
+const original = remote ?? await readSource();
+const source = remote ? `existing Blob ${LIVE_PATH}` : `local source ${SOURCE_ARG}`;
+validateClients(original, source);
 const migrated = original.map((client, index) => ({ ...client, id: idFor(index) }));
 assertEquivalent(original, migrated);
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-const backupPath = `clients.backup-${stamp}.json`;
-console.log(`Validated ${original.length} clients using ${configuredAccess} Blob access.`);
-console.log(`Backup: ${backupPath}`);
+const backupPath = remote ? `clients.backup-${stamp}.json` : `clients.import-source-${stamp}.json`;
+console.log(`Validated ${original.length} clients from ${source}.`);
+console.log(`Backup/import copy: ${backupPath}`);
 console.log(`Staged migration: ${MIGRATED_PATH}`);
 
 if (!APPLY) {
-  console.log("Dry run only. No Blob data was changed. Re-run with --apply to migrate.");
+  console.log("Dry run only. No Blob data was changed. Re-run with --apply to initialize/migrate the canonical store.");
   process.exit(0);
 }
 
-await writePrivate(backupPath, original);
+await writeBlob(backupPath, original);
 const backupCheck = await readBlob(backupPath);
-validateClients(backupCheck, "Backup Blob data");
-if (JSON.stringify(backupCheck) !== JSON.stringify(original)) throw new Error("Backup verification failed; live data was not changed");
+validateClients(backupCheck, "Backup/import Blob data");
+if (JSON.stringify(backupCheck) !== JSON.stringify(original)) throw new Error("Backup/import verification failed; canonical data was not changed");
 
-await writePrivate(MIGRATED_PATH, migrated);
+await writeBlob(MIGRATED_PATH, migrated);
 const stagedCheck = await readBlob(MIGRATED_PATH);
 validateClients(stagedCheck, "Staged Blob data");
 assertEquivalent(original, stagedCheck);
 
-await writePrivate(LIVE_PATH, stagedCheck);
+await writeBlob(LIVE_PATH, stagedCheck);
 const liveCheck = await readBlob(LIVE_PATH);
-validateClients(liveCheck, "Final live Blob data");
+validateClients(liveCheck, "Final canonical Blob data");
 assertEquivalent(original, liveCheck);
-console.log(`Migration complete. ${liveCheck.length} clients now use ${PREFIX}### IDs.`);
-console.log(`Rollback backup retained at ${backupPath}.`);
+console.log(`Canonical migration complete. ${liveCheck.length} records are in ${LIVE_PATH}.`);
+console.log(`Rollback/import copy retained at ${backupPath}.`);
