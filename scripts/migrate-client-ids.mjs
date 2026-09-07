@@ -1,4 +1,4 @@
-import { get, list, put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 
 const LIVE_PATH = "clients.json";
 const MIGRATED_PATH = "clients.migrated.json";
@@ -6,35 +6,38 @@ const PREFIX = "Client1-";
 const APPLY = process.argv.includes("--apply");
 const token = Object.entries(process.env)
   .filter(([name]) => name === "BLOB_READ_WRITE_TOKEN" || name.endsWith("_READ_WRITE_TOKEN"))
-  .map(([, value]) => value?.split(/\r?\n/).find((line) => line.trim().startsWith("vercel_blob_"))?.trim())
+  .map(([, value]) => value?.split(/\r?\n/).map((line) => line.trim()).find((line) => line.startsWith("vercel_blob_")))
   .find((value) => value?.startsWith("vercel_blob_"));
+const configuredAccess = process.env.BLOB_ACCESS_MODE?.trim().toLowerCase() === "public" ? "public" : "private";
+const accessModes = [configuredAccess, configuredAccess === "private" ? "public" : "private"];
 
-if (!token) {
-  throw new Error("A *_READ_WRITE_TOKEN environment variable must contain a valid Vercel Blob token");
-}
+if (!token) throw new Error("A *_READ_WRITE_TOKEN environment variable must contain a valid Vercel Blob token");
 
 function idFor(index) {
   return `${PREFIX}${String(index + 1).padStart(3, "0")}`;
 }
 
-async function readBlob(pathname) {
-  const result = await get(pathname, { access: "private", useCache: false, token });
-  if (result?.statusCode === 200 && result.stream) {
-    return JSON.parse(await new Response(result.stream).text());
-  }
+function isAccessModeError(error) {
+  return /access mode|public.*private|private.*public|store.*(public|private)/i.test(String(error?.message ?? error));
+}
 
-  const { blobs } = await list({ prefix: pathname, limit: 20, token });
-  const match = blobs.find((blob) => blob.pathname === pathname);
-  if (!match) throw new Error(`Blob ${pathname} was not found`);
-  const response = await fetch(match.downloadUrl || match.url);
-  if (!response.ok) throw new Error(`Unable to download ${pathname}: HTTP ${response.status}`);
-  return JSON.parse(await response.text());
+async function readBlob(pathname) {
+  let lastError;
+  for (const access of accessModes) {
+    try {
+      const result = await get(pathname, { access, useCache: false, token });
+      if (!result?.stream) return null;
+      return JSON.parse(await new Response(result.stream).text());
+    } catch (error) {
+      lastError = error;
+      if (!isAccessModeError(error)) throw error;
+    }
+  }
+  throw lastError;
 }
 
 function validateClients(value, label) {
-  if (!Array.isArray(value) || value.length === 0) {
-    throw new Error(`${label} must be a non-empty JSON array`);
-  }
+  if (!Array.isArray(value) || value.length === 0) throw new Error(`${label} must be a non-empty JSON array`);
   for (const [index, client] of value.entries()) {
     if (!client || typeof client !== "object" || typeof client.client !== "string") {
       throw new Error(`${label} record ${index + 1} is not a valid client`);
@@ -44,9 +47,7 @@ function validateClients(value, label) {
 
 function assertEquivalent(before, after) {
   if (before.length !== after.length) throw new Error("Record count changed during migration");
-  const beforeNames = before.map((client) => client.client);
-  const afterNames = after.map((client) => client.client);
-  if (JSON.stringify(beforeNames) !== JSON.stringify(afterNames)) {
+  if (JSON.stringify(before.map((client) => client.client)) !== JSON.stringify(after.map((client) => client.client))) {
     throw new Error("Client order or names changed during migration");
   }
   const ids = after.map((client) => client.id);
@@ -57,23 +58,34 @@ function assertEquivalent(before, after) {
 }
 
 async function writePrivate(pathname, value) {
-  await put(pathname, JSON.stringify(value, null, 2), {
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-    token,
-  });
+  let lastError;
+  for (const access of accessModes) {
+    try {
+      return await put(pathname, JSON.stringify(value, null, 2), {
+        access,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        cacheControlMaxAge: 0,
+        contentType: "application/json",
+        token,
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isAccessModeError(error)) throw error;
+    }
+  }
+  throw lastError;
 }
 
 const original = await readBlob(LIVE_PATH);
+if (!original) throw new Error(`Blob ${LIVE_PATH} was not found in access modes: ${accessModes.join(", ")}`);
 validateClients(original, "Live Blob data");
 const migrated = original.map((client, index) => ({ ...client, id: idFor(index) }));
 assertEquivalent(original, migrated);
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const backupPath = `clients.backup-${stamp}.json`;
-console.log(`Validated ${original.length} clients.`);
+console.log(`Validated ${original.length} clients using ${configuredAccess} Blob access.`);
 console.log(`Backup: ${backupPath}`);
 console.log(`Staged migration: ${MIGRATED_PATH}`);
 
@@ -85,9 +97,7 @@ if (!APPLY) {
 await writePrivate(backupPath, original);
 const backupCheck = await readBlob(backupPath);
 validateClients(backupCheck, "Backup Blob data");
-if (JSON.stringify(backupCheck) !== JSON.stringify(original)) {
-  throw new Error("Backup verification failed; live data was not changed");
-}
+if (JSON.stringify(backupCheck) !== JSON.stringify(original)) throw new Error("Backup verification failed; live data was not changed");
 
 await writePrivate(MIGRATED_PATH, migrated);
 const stagedCheck = await readBlob(MIGRATED_PATH);

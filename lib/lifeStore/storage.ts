@@ -1,13 +1,11 @@
-import { get, list, put } from "@vercel/blob";
 import { promises as fs } from "fs";
 import path from "path";
 import type { Store } from "@/lib/types";
-import { blobEnabled, blobTokenValue as tokenValue } from "@/lib/blob";
 import { isEmptyStore } from "@/lib/store";
 import { starterStore } from "@/lib/lifeStore/seed";
+import { assertBlobConfigured, blobEnabled, getBlob, productionStorageRequired, putBlob } from "@/lib/blob";
 
 const BLOB_PATHNAME = "life-store.json";
-
 export const EMPTY_STORE: Store = { animals: [], content: [], personal: [] };
 
 function localDataPath(): string {
@@ -24,73 +22,39 @@ function normalizeStore(value: unknown): Store | null {
   };
 }
 
-async function parseStoreJson(text: string): Promise<Store | null> {
-  if (!text.trim()) return null;
-  return normalizeStore(JSON.parse(text) as unknown);
-}
-
 async function readFromBlob(): Promise<Store | null> {
-  const token = tokenValue();
-  try {
-    const result = await get(BLOB_PATHNAME, {
-      access: "private",
-      useCache: false,
-      token,
-    });
-    if (result && result.statusCode === 200 && result.stream) {
-      const text = await new Response(result.stream).text();
-      return parseStoreJson(text);
-    }
-  } catch {
-    // Blob may not exist yet — fall through to list().
-  }
-
-  try {
-    const { blobs } = await list({ prefix: BLOB_PATHNAME, limit: 20, token });
-    const match = blobs.find((b) => b.pathname === BLOB_PATHNAME);
-    if (!match) return null;
-    const url = match.downloadUrl || match.url;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const text = await res.text();
-    return parseStoreJson(text);
-  } catch {
-    return null;
-  }
+  const result = await getBlob(BLOB_PATHNAME);
+  if (!result?.stream) return null;
+  const parsed = normalizeStore(await new Response(result.stream).json());
+  if (!parsed) throw new Error("Blob life-store.json is invalid");
+  return parsed;
 }
 
 async function writeToBlob(store: Store): Promise<void> {
-  const body = JSON.stringify(store, null, 2);
-  await put(BLOB_PATHNAME, body, {
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-    token: tokenValue(),
-  });
+  const uploaded = await putBlob(BLOB_PATHNAME, JSON.stringify(store, null, 2));
+  const check = await getBlob(uploaded.url);
+  if (!check?.stream || !normalizeStore(await new Response(check.stream).json())) {
+    throw new Error("Blob write verification failed");
+  }
 }
 
 export async function readStore(): Promise<Store> {
-  let store: Store = EMPTY_STORE;
-
+  let store: Store | null = null;
   if (blobEnabled()) {
-    const existing = await readFromBlob();
-    store = existing ?? EMPTY_STORE;
+    store = await readFromBlob();
   } else {
+    assertBlobConfigured();
     try {
-      const raw = await fs.readFile(localDataPath(), "utf8");
-      const parsed = await parseStoreJson(raw);
-      if (parsed) store = parsed;
+      store = normalizeStore(JSON.parse(await fs.readFile(localDataPath(), "utf8")) as unknown);
     } catch {
-      // No local file yet — fall through.
+      // Local development may start without a data file.
     }
   }
 
-  if (isEmptyStore(store)) {
+  if (!store || isEmptyStore(store)) {
     store = starterStore();
     await writeStore(store);
   }
-
   return store;
 }
 
@@ -99,6 +63,8 @@ export async function writeStore(store: Store): Promise<void> {
     await writeToBlob(store);
     return;
   }
+  assertBlobConfigured();
+  if (productionStorageRequired()) throw new Error("Refusing to write life-store data to the production filesystem");
   await fs.mkdir(path.dirname(localDataPath()), { recursive: true });
   await fs.writeFile(localDataPath(), JSON.stringify(store, null, 2));
 }
