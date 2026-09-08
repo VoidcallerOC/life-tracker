@@ -14,6 +14,10 @@ export { detectBlobToken, blobEnabled, blobTokenName } from "@/lib/blob";
 
 const BLOB_PATHNAME = "clients.json";
 
+function localDataPath(): string {
+  return path.join(process.cwd(), "data", "clients.json");
+}
+
 function normalizeClients(value: unknown): Client[] | null {
   if (!Array.isArray(value)) return null;
   return value.map((record) => {
@@ -27,9 +31,9 @@ function normalizeClients(value: unknown): Client[] | null {
 }
 
 async function loadShippedSeed(): Promise<Client[]> {
-  const raw = await fs.readFile(path.join(process.cwd(), "data", "clients.json"), "utf8");
+  const raw = await fs.readFile(localDataPath(), "utf8");
   const parsed = normalizeClients(JSON.parse(raw) as unknown);
-  if (!parsed || parsed.length === 0) throw new Error("Shipped data/clients.json is not a non-empty array");
+  if (!parsed) throw new Error("Shipped data/clients.json is not an array");
   return parsed;
 }
 
@@ -37,7 +41,7 @@ async function readFromBlob(): Promise<Client[] | null> {
   const result = await getBlob(BLOB_PATHNAME);
   if (!result?.stream) return null;
   const parsed = normalizeClients(await new Response(result.stream).json());
-  if (!parsed || parsed.length === 0) throw new Error("Blob clients.json is not a non-empty array");
+  if (!parsed) throw new Error("Blob clients.json is not an array");
   return parsed;
 }
 
@@ -52,22 +56,12 @@ async function writeToBlob(clients: Client[]): Promise<void> {
 export async function readClients(): Promise<Client[]> {
   if (blobEnabled()) {
     const existing = await readFromBlob();
-    if (existing) return existing;
-
-    // A newly connected store has no object yet. Initialize it once from the
-    // shipped seed; never overwrite an existing canonical object with seed data.
-    const seed = await loadShippedSeed();
-    try {
-      await writeToBlob(seed);
-    } catch (error) {
-      console.error("Unable to initialize canonical clients.json; rendering shipped seed", error);
-    }
-    return seed;
+    return existing ?? loadShippedSeed();
   }
   assertBlobConfigured();
   try {
-    const parsed = normalizeClients(JSON.parse(await fs.readFile(path.join(process.cwd(), "data", "clients.json"), "utf8")) as unknown);
-    if (parsed && parsed.length > 0) return parsed;
+    const parsed = normalizeClients(JSON.parse(await fs.readFile(localDataPath(), "utf8")) as unknown);
+    if (parsed) return parsed;
   } catch {
     // Local development may start without a data file.
   }
@@ -82,8 +76,8 @@ export async function writeClients(clients: Client[]): Promise<void> {
   }
   assertBlobConfigured();
   if (productionStorageRequired()) throw new Error("Refusing to write client data to the production filesystem");
-  await fs.mkdir(path.dirname(path.join(process.cwd(), "data", "clients.json")), { recursive: true });
-  await fs.writeFile(path.join(process.cwd(), "data", "clients.json"), JSON.stringify(clients, null, 2));
+  await fs.mkdir(path.dirname(localDataPath()), { recursive: true });
+  await fs.writeFile(localDataPath(), JSON.stringify(clients, null, 2));
 }
 
 export async function resetToShippedSeed(): Promise<Client[]> {
