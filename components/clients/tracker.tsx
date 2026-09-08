@@ -9,7 +9,7 @@ import { ClientSheet } from "./client-sheet";
 import { BulkSheet } from "./bulk-sheet";
 import { ContactedButton } from "./contacted-button";
 
-type Filter = "pipeline" | "contacts" | Status | "all";
+type Filter = "pipeline" | "contacted" | Status | "all";
 
 function money(n: number | null): string | null {
   if (n == null) return null;
@@ -180,7 +180,7 @@ export function Tracker({ clients }: { clients: Client[] }) {
     return map;
   }, [localClients]);
 
-  const contacts = useMemo(
+  const contacted = useMemo(
     () => localClients.filter((client) => client.status === "Potential" && client.contacted),
     [localClients],
   );
@@ -191,13 +191,13 @@ export function Tracker({ clients }: { clients: Client[] }) {
     { id: "Pending", label: `Pending ${counts.Pending}` },
     { id: "Paid", label: `Paid ${counts.Paid}` },
     { id: "Lost", label: `Lost ${counts.Lost}` },
-    { id: "contacts", label: `Contacted ${contacts.length}` },
+    { id: "contacted", label: `Contacted ${contacted.length}` },
     { id: "all", label: "All" },
   ];
 
   const visible =
-    filter === "contacts"
-      ? contacts
+    filter === "contacted"
+      ? contacted
       : filter === "pipeline" || filter === "all"
         ? localClients
         : grouped[filter];
@@ -268,7 +268,7 @@ export function Tracker({ clients }: { clients: Client[] }) {
           title={
             filter === "all"
               ? "All clients"
-              : filter === "contacts"
+              : filter === "contacted"
                 ? "Contacted"
                 : filter
           }
