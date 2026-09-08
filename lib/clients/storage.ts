@@ -57,7 +57,11 @@ export async function readClients(): Promise<Client[]> {
     // A newly connected store has no object yet. Initialize it once from the
     // shipped seed; never overwrite an existing canonical object with seed data.
     const seed = await loadShippedSeed();
-    await writeToBlob(seed);
+    try {
+      await writeToBlob(seed);
+    } catch (error) {
+      console.error("Unable to initialize canonical clients.json; rendering shipped seed", error);
+    }
     return seed;
   }
   assertBlobConfigured();

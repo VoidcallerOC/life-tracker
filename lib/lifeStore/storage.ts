@@ -53,7 +53,11 @@ export async function readStore(): Promise<Store> {
 
   if (!store || isEmptyStore(store)) {
     store = starterStore();
-    await writeStore(store);
+    try {
+      await writeStore(store);
+    } catch (error) {
+      console.error("Unable to initialize canonical life-store.json; rendering starter store", error);
+    }
   }
   return store;
 }
