@@ -30,8 +30,6 @@ export function detectBlobToken(): { name: string; value: string } | null {
     .map(([name, raw]) => ({ name, value: sanitizeToken(raw) }))
     .filter((candidate): candidate is { name: string; value: string } => isBlobTokenValue(candidate.value));
 
-  // Do not guess between multiple Blob stores. Guessing is what can make a
-  // valid deployment appear to lose clients.json from the wrong store.
   return candidates.length === 1 ? candidates[0] : null;
 }
 
@@ -47,12 +45,18 @@ export function blobTokenValue(): string | undefined {
   return detectBlobToken()?.value;
 }
 
+/**
+ * Vercel's older integrations did not expose BLOB_ACCESS_MODE. Private is the
+ * safe default for the app's read/write token; an explicit value still wins.
+ */
+export function blobAccessModes(): BlobAccessType[] {
+  const configured = process.env.BLOB_ACCESS_MODE?.trim().toLowerCase();
+  if (configured === "private" || configured === "public") return [configured];
+  return ["private", "public"];
+}
+
 export function blobAccessMode(): BlobAccessType {
-  const raw = process.env.BLOB_ACCESS_MODE?.trim().toLowerCase();
-  if (raw !== "private" && raw !== "public") {
-    throw new Error("BLOB_ACCESS_MODE must be explicitly set to private or public for the canonical client store");
-  }
-  return raw;
+  return blobAccessModes()[0];
 }
 
 export function productionStorageRequired(): boolean {
@@ -65,26 +69,45 @@ export function assertBlobConfigured(): void {
       "Canonical client storage is not configured. Set LIFE_TRACKER_BLOB_READ_WRITE_TOKEN (or BLOB_READ_WRITE_TOKEN) to the connected store token and redeploy.",
     );
   }
-  if (productionStorageRequired()) blobAccessMode();
+}
+
+function isAccessModeError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /access mode|public.*private|private.*public|store.*(public|private)/i.test(message);
 }
 
 export async function getBlob(pathname: string): Promise<GetBlobResult | null> {
   const { get } = await import("@vercel/blob");
-  return get(pathname, {
-    access: blobAccessMode(),
-    useCache: false,
-    token: blobTokenValue(),
-  });
+  let lastError: unknown;
+  for (const access of blobAccessModes()) {
+    try {
+      return await get(pathname, { access, useCache: false, token: blobTokenValue() });
+    } catch (error) {
+      lastError = error;
+      if (!isAccessModeError(error)) throw error;
+    }
+  }
+  if (lastError && !isAccessModeError(lastError)) throw lastError;
+  return null;
 }
 
 export async function putBlob(pathname: string, body: string): Promise<PutBlobResult> {
   const { put } = await import("@vercel/blob");
-  return put(pathname, body, {
-    access: blobAccessMode(),
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 0,
-    contentType: "application/json",
-    token: blobTokenValue(),
-  });
+  let lastError: unknown;
+  for (const access of blobAccessModes()) {
+    try {
+      return await put(pathname, body, {
+        access,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        cacheControlMaxAge: 0,
+        contentType: "application/json",
+        token: blobTokenValue(),
+      });
+    } catch (error) {
+      lastError = error;
+      if (!isAccessModeError(error)) throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Vercel Blob write failed");
 }

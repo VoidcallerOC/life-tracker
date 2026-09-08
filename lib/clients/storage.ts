@@ -6,6 +6,7 @@ import {
   blobEnabled,
   blobTokenName,
   getBlob,
+  productionStorageRequired,
   putBlob,
 } from "@/lib/blob";
 
@@ -28,7 +29,7 @@ function normalizeClients(value: unknown): Client[] | null {
 async function loadShippedSeed(): Promise<Client[]> {
   const raw = await fs.readFile(path.join(process.cwd(), "data", "clients.json"), "utf8");
   const parsed = normalizeClients(JSON.parse(raw) as unknown);
-  if (!parsed) throw new Error("Shipped data/clients.json is not an array");
+  if (!parsed || parsed.length === 0) throw new Error("Shipped data/clients.json is not a non-empty array");
   return parsed;
 }
 
@@ -36,7 +37,7 @@ async function readFromBlob(): Promise<Client[] | null> {
   const result = await getBlob(BLOB_PATHNAME);
   if (!result?.stream) return null;
   const parsed = normalizeClients(await new Response(result.stream).json());
-  if (!parsed) throw new Error("Blob clients.json is not an array");
+  if (!parsed || parsed.length === 0) throw new Error("Blob clients.json is not a non-empty array");
   return parsed;
 }
 
@@ -52,11 +53,20 @@ export async function readClients(): Promise<Client[]> {
   if (blobEnabled()) {
     const existing = await readFromBlob();
     if (existing) return existing;
-    throw new Error(
-      `Canonical Blob object ${BLOB_PATHNAME} is missing. Run the verified client-data migration before using production.`,
-    );
+
+    // A newly connected store has no object yet. Initialize it once from the
+    // shipped seed; never overwrite an existing canonical object with seed data.
+    const seed = await loadShippedSeed();
+    await writeToBlob(seed);
+    return seed;
   }
   assertBlobConfigured();
+  try {
+    const parsed = normalizeClients(JSON.parse(await fs.readFile(path.join(process.cwd(), "data", "clients.json"), "utf8")) as unknown);
+    if (parsed && parsed.length > 0) return parsed;
+  } catch {
+    // Local development may start without a data file.
+  }
   return loadShippedSeed();
 }
 
@@ -67,7 +77,9 @@ export async function writeClients(clients: Client[]): Promise<void> {
     return;
   }
   assertBlobConfigured();
-  throw new Error("Canonical client storage is unavailable; refusing to write client data to the filesystem");
+  if (productionStorageRequired()) throw new Error("Refusing to write client data to the production filesystem");
+  await fs.mkdir(path.dirname(path.join(process.cwd(), "data", "clients.json")), { recursive: true });
+  await fs.writeFile(path.join(process.cwd(), "data", "clients.json"), JSON.stringify(clients, null, 2));
 }
 
 export async function resetToShippedSeed(): Promise<Client[]> {

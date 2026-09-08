@@ -23,8 +23,8 @@ Live: https://life-tracker-orcin-nine.vercel.app/
 
 ## Setup
 1. Copy `.env.example` → `.env.local` and set `AUTH_PASSWORD`.
-2. Production: connect one Vercel Blob store to this project, set `BLOB_ACCESS_MODE` to the store's actual mode (`private` or `public`), and set `LIFE_TRACKER_BLOB_READ_WRITE_TOKEN` to that store's generated token. Redeploy. Do not configure multiple ambiguous `*_READ_WRITE_TOKEN` values.
-3. Before opening production to edits, run `BLOB_ACCESS_MODE=... LIFE_TRACKER_BLOB_READ_WRITE_TOKEN=... npm run migrate:client-ids -- --apply`. The command validates every record, writes a rollback/import copy, stages the ID migration, verifies it, and only then replaces canonical `clients.json`.
+2. Production: connect one Vercel Blob store to this project and set `LIFE_TRACKER_BLOB_READ_WRITE_TOKEN` to that store's generated token. The app defaults to private Blob access; set `BLOB_ACCESS_MODE=public` only for a public store. Redeploy. Do not configure multiple ambiguous `*_READ_WRITE_TOKEN` values.
+3. On the first production request, if `clients.json` is absent, the app initializes it once from the shipped seed and then uses Blob as the canonical store. To migrate an existing store's IDs with a verified backup, run `BLOB_ACCESS_MODE=... LIFE_TRACKER_BLOB_READ_WRITE_TOKEN=... npm run migrate:client-ids -- --apply` before opening production to edits.
 4. On `/clients`, run **Set today's date** if Paid clients are missing `paidDate`.
 5. Phone: open the site → Share → Add to Home Screen.
 
