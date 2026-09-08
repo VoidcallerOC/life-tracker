@@ -8,8 +8,8 @@ import { bucketFor, bucketLabel, daysUntil } from "@/lib/deadlines";
 export const dynamic = "force-dynamic";
 
 // This route is exempt from the cookie-session gate in proxy.ts (scheduled
-// automation can't do an interactive login), so it authenticates itself —
-// see isAuthorizedRequest in lib/auth.ts.
+// automation can't do an interactive login), so it authenticates itself with
+// the x-summary-key header — see isAuthorizedRequest in lib/auth.ts.
 export async function GET(request: Request) {
   if (!isAuthorizedRequest(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

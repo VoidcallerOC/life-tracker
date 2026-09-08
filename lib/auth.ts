@@ -44,15 +44,11 @@ export async function isValidSession(
   return diff === 0;
 }
 
-// Shared constant-time compare for the token-gated /api/* routes (see
-// app/api/summary and app/api/admin) that scheduled automation hits instead
-// of the interactive cookie login. Reusing AUTH_PASSWORD rather than a
-// separate secret is deliberate — this is a single-admin app behind one
-// shared credential already, so a second secret would add setup friction
-// without changing the actual threat model.
+// Shared constant-time compare for the token-gated /api/* routes. The key is
+// accepted only in a request header so it cannot leak through URLs, history,
+// referrers, or ordinary access-log query strings.
 export function isAuthorizedRequest(request: Request): boolean {
-  const url = new URL(request.url);
-  const key = request.headers.get("x-summary-key") ?? url.searchParams.get("key");
+  const key = request.headers.get("x-summary-key");
   if (!key) return false;
   let expected: string;
   try {

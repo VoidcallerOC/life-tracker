@@ -6,17 +6,18 @@ import { PRIORITY_CONTENT, PRIORITY_PERSONAL, mergePriorityRows } from "@/lib/pr
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  if (!isAuthorizedRequest(request)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorizedRequest(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  return NextResponse.json({ store: await readStore() });
+}
 
-  const url = new URL(request.url);
+export async function POST(request: Request) {
+  if (!isAuthorizedRequest(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  let body: unknown;
+  try { body = await request.json(); } catch { body = {}; }
+  if (!body || typeof body !== "object" || (body as { action?: unknown }).action !== "upsertPriorities") {
+    return NextResponse.json({ error: "unsupported action" }, { status: 400 });
+  }
   const store = await readStore();
-
-  if (url.searchParams.get("upsertPriorities") !== "1") {
-    return NextResponse.json({ store });
-  }
-
   const next = {
     ...store,
     personal: mergePriorityRows(store.personal, PRIORITY_PERSONAL),
