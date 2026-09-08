@@ -23,17 +23,26 @@ function normalizeStore(value: unknown): Store | null {
 }
 
 async function readFromBlob(): Promise<Store | null> {
-  const result = await getBlob(BLOB_PATHNAME);
-  if (!result?.stream) return null;
-  const parsed = normalizeStore(await new Response(result.stream).json());
-  if (!parsed) throw new Error("Blob life-store.json is invalid");
-  return parsed;
+  try {
+    const result = await getBlob(BLOB_PATHNAME);
+    if (!result?.stream) return null;
+    const parsed = normalizeStore(await new Response(result.stream).json());
+    if (!parsed) {
+      console.error("Blob life-store.json is invalid");
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.error("Failed to read life-store.json from Blob:", error);
+    return null;
+  }
 }
 
 async function writeToBlob(store: Store): Promise<void> {
   const uploaded = await putBlob(BLOB_PATHNAME, JSON.stringify(store, null, 2));
   const check = await getBlob(uploaded.url);
   if (!check?.stream || !normalizeStore(await new Response(check.stream).json())) {
+    console.error("Blob write verification failed for life-store.json");
     throw new Error("Blob write verification failed");
   }
 }

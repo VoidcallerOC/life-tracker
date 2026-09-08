@@ -38,19 +38,33 @@ async function loadShippedSeed(): Promise<Client[]> {
 }
 
 async function readFromBlob(): Promise<Client[] | null> {
-  const result = await getBlob(BLOB_PATHNAME);
-  if (!result?.stream) return null;
-  const parsed = normalizeClients(await new Response(result.stream).json());
-  if (!parsed) throw new Error("Blob clients.json is not an array");
-  return parsed;
+  try {
+    const result = await getBlob(BLOB_PATHNAME);
+    if (!result?.stream) return null;
+    const parsed = normalizeClients(await new Response(result.stream).json());
+    if (!parsed) {
+      console.error("Blob clients.json is not an array");
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.error("Failed to read clients.json from Blob:", error);
+    return null;
+  }
 }
 
 async function writeToBlob(clients: Client[]): Promise<void> {
   const uploaded = await putBlob(BLOB_PATHNAME, JSON.stringify(clients, null, 2));
   const check = await getBlob(uploaded.url);
-  if (!check?.stream) throw new Error("Blob write did not read back");
+  if (!check?.stream) {
+    console.error("Blob write did not read back for clients.json");
+    throw new Error("Blob write did not read back");
+  }
   const parsed = normalizeClients(await new Response(check.stream).json());
-  if (!parsed || parsed.length !== clients.length) throw new Error("Blob write verification failed");
+  if (!parsed || parsed.length !== clients.length) {
+    console.error("Blob write verification failed for clients.json");
+    throw new Error("Blob write verification failed");
+  }
 }
 
 export async function readClients(): Promise<Client[]> {
@@ -62,7 +76,8 @@ export async function readClients(): Promise<Client[]> {
   try {
     const parsed = normalizeClients(JSON.parse(await fs.readFile(localDataPath(), "utf8")) as unknown);
     if (parsed) return parsed;
-  } catch {
+  } catch (error) {
+    console.error("Failed to read local clients.json:", error);
     // Local development may start without a data file.
   }
   return loadShippedSeed();

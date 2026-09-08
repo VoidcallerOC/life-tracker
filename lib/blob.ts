@@ -95,7 +95,10 @@ export async function getBlob(pathname: string): Promise<GetBlobResult | null> {
       if (!isBlobAccessModeError(error)) break;
     }
   }
-  if (lastError && !isBlobAccessModeError(lastError)) throw lastError;
+  if (lastError && !isBlobAccessModeError(lastError)) {
+    console.error(`Failed to get Blob at ${pathname}:`, lastError);
+    return null;
+  }
   return null;
 }
 
