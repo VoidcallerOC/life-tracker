@@ -36,7 +36,7 @@ export function ForgeSummary({ clients }: { clients: Client[] }) {
     let quoted = 0, deposit = 0, paid = 0, paidThisMonth = 0, outstanding = 0;
 
     for (const c of clients) {
-      counts[c.status] += 1;
+      if (!(c.status === "Potential" && c.contacted)) counts[c.status] += 1;
       quoted += c.quoted ?? 0;
       deposit += c.deposit ?? 0;
       paid += c.paid ?? 0;
@@ -65,7 +65,7 @@ export function ForgeSummary({ clients }: { clients: Client[] }) {
   const active = useMemo(
     () =>
       clients
-        .filter((c) => PIPELINE_STATUSES.includes(c.status))
+        .filter((c) => PIPELINE_STATUSES.includes(c.status) && !(c.status === "Potential" && c.contacted))
         .sort((a, b) => a.client.localeCompare(b.client)),
     [clients],
   );

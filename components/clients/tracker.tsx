@@ -9,7 +9,7 @@ import { ClientSheet } from "./client-sheet";
 import { BulkSheet } from "./bulk-sheet";
 import { ContactedButton } from "./contacted-button";
 
-type Filter = "pipeline" | "contacted" | Status | "all";
+type Filter = "pipeline" | "contacts" | Status | "all";
 
 function money(n: number | null): string | null {
   if (n == null) return null;
@@ -164,15 +164,26 @@ export function Tracker({ clients }: { clients: Client[] }) {
 
   const counts = useMemo(() => {
     const map: Record<Status, number> = { Potential: 0, Pending: 0, Paid: 0, Lost: 0 };
-    for (const c of localClients) map[c.status] += 1;
+    for (const c of localClients) {
+      if (c.status === "Potential" && c.contacted) continue;
+      map[c.status] += 1;
+    }
     return map;
   }, [localClients]);
 
   const grouped = useMemo(() => {
     const map: Record<Status, Client[]> = { Potential: [], Pending: [], Paid: [], Lost: [] };
-    for (const c of localClients) map[c.status].push(c);
+    for (const c of localClients) {
+      if (c.status === "Potential" && c.contacted) continue;
+      map[c.status].push(c);
+    }
     return map;
   }, [localClients]);
+
+  const contacts = useMemo(
+    () => localClients.filter((client) => client.status === "Potential" && client.contacted),
+    [localClients],
+  );
 
   const filters: { id: Filter; label: string }[] = [
     { id: "pipeline", label: "Pipeline" },
@@ -180,13 +191,13 @@ export function Tracker({ clients }: { clients: Client[] }) {
     { id: "Pending", label: `Pending ${counts.Pending}` },
     { id: "Paid", label: `Paid ${counts.Paid}` },
     { id: "Lost", label: `Lost ${counts.Lost}` },
-    { id: "contacted", label: `Contacted ${localClients.filter((c) => c.contacted).length}` },
+    { id: "contacts", label: `Contacts ${contacts.length}` },
     { id: "all", label: "All" },
   ];
 
   const visible =
-    filter === "contacted"
-      ? localClients.filter((client) => client.contacted)
+    filter === "contacts"
+      ? contacts
       : filter === "pipeline" || filter === "all"
         ? localClients
         : grouped[filter];
@@ -257,8 +268,8 @@ export function Tracker({ clients }: { clients: Client[] }) {
           title={
             filter === "all"
               ? "All clients"
-              : filter === "contacted"
-                ? "Contacted"
+              : filter === "contacts"
+                ? "Contacts"
                 : filter
           }
           clients={visible}

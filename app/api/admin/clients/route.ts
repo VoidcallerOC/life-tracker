@@ -106,20 +106,21 @@ export async function GET(request: Request) {
     const paid = clients.filter((c) => c.status === "Paid");
     const pending = clients.filter((c) => c.status === "Pending");
     const lost = clients.filter((c) => c.status === "Lost");
+    const contacts = clients.filter((c) => c.status === "Potential" && c.contacted);
     const other = clients.filter(
-      (c) => c.status === "Potential" && !POTENTIAL_QUEUE.includes(c.id),
+      (c) => c.status === "Potential" && !c.contacted && !POTENTIAL_QUEUE.includes(c.id),
     );
 
     const queued: Client[] = [];
     POTENTIAL_QUEUE.forEach((id, index) => {
       const client = byId.get(id);
-      if (!client || client.status !== "Potential") return;
+      if (!client || client.status !== "Potential" || client.contacted) return;
       const n = String(index + 1).padStart(2, "0");
       const rest = stripQueuePrefix(client.nextAction) || "Pitch";
       queued.push({ ...client, nextAction: `#${n} — ${rest}` });
     });
 
-    const next = [...paid, ...pending, ...queued, ...other, ...lost];
+    const next = [...paid, ...pending, ...queued, ...other, ...contacts, ...lost];
     await writeClients(next);
     return NextResponse.json({
       ok: true,
