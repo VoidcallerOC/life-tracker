@@ -191,7 +191,7 @@ export function Tracker({ clients }: { clients: Client[] }) {
     { id: "Pending", label: `Pending ${counts.Pending}` },
     { id: "Paid", label: `Paid ${counts.Paid}` },
     { id: "Lost", label: `Lost ${counts.Lost}` },
-    { id: "contacts", label: `Contacts ${contacts.length}` },
+    { id: "contacts", label: `Contacted ${contacts.length}` },
     { id: "all", label: "All" },
   ];
 
@@ -269,7 +269,7 @@ export function Tracker({ clients }: { clients: Client[] }) {
             filter === "all"
               ? "All clients"
               : filter === "contacts"
-                ? "Contacts"
+                ? "Contacted"
                 : filter
           }
           clients={visible}
