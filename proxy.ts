@@ -47,6 +47,9 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
 
 const TOKEN_GATED = new Set(["/api/summary", "/api/admin/clients", "/api/admin/store"]);
 
+// API routes that require session authentication (return 401, not redirect)
+const SESSION_API_ROUTES = new Set(["/api/clients", "/api/clients/create"]);
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -69,6 +72,12 @@ export async function proxy(request: NextRequest) {
 
   const session = request.cookies.get(SESSION_COOKIE)?.value;
   if (!(await isValidSession(session))) {
+    // For API routes, return 401 instead of redirecting
+    if (SESSION_API_ROUTES.has(pathname) || pathname.startsWith("/api/clients")) {
+      return withSecurityHeaders(
+        NextResponse.json({ error: "unauthorized" }, { status: 401 }),
+      );
+    }
     const login = new URL("/login", request.url);
     return withSecurityHeaders(NextResponse.redirect(login));
   }
