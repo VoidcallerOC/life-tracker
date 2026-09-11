@@ -23,6 +23,8 @@ export type Client = {
   nextAction: string;
   notes: string;
   lastContacted: string;
+  dueDate?: string;
+  snoozeUntil?: string;
 };
 
 export function emptyClient(): Omit<Client, "id"> {
@@ -45,6 +47,8 @@ export function emptyClient(): Omit<Client, "id"> {
     nextAction: "",
     notes: "",
     lastContacted: "",
+    dueDate: "",
+    snoozeUntil: "",
   };
 }
 

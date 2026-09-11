@@ -1,16 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0b0d10;
-  --color-panel: #12161c;
-  --color-panel2: #1a2029;
-  --color-border: #242c36;
-  --color-muted: #8892a6;
-  --color-text: #e6ecf3;
-  --color-accent: #7aa2ff;
-  --color-overdue: #ef4444;
-  --color-soon: #f5b13d;
-  --color-later: #22c55e;
+  --color-bg: #0a0c10;
+  --color-surface: #12151b;
+  --color-surface2: #181c24;
+  --color-fg: #e8edf4;
+  --color-muted: #8b95a8;
+  --color-subtle: #6b7384;
+  --color-border: #232833;
+  --color-accent: #d7dde6;
+  --color-accent-fg: #0a0c10;
+  --color-overdue: #e25d5d;
+  --color-soon: #d8a25e;
+  --color-later: #6fbf8a;
+  --color-ring: #d7dde6;
+  --color-panel: #12151b;
+  --color-panel2: #181c24;
+  --color-text: #e8edf4;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
 }
 
 :root {
@@ -20,8 +32,14 @@
 html,
 body {
   background: var(--color-bg);
-  color: var(--color-text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+  color: var(--color-fg);
+  height: 100%;
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
 }
 
 button,
@@ -32,27 +50,40 @@ textarea {
   touch-action: manipulation;
 }
 
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
 textarea,
-input {
+input,
+select {
   font-size: 16px;
 }
 
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .cell-input {
-  @apply w-full bg-panel2/50 border border-border/60 px-2 py-1.5 outline-none focus:ring-1 focus:ring-accent/60 focus:border-accent/60 rounded-md;
+  @apply w-full bg-surface2/50 border border-border/60 px-2 py-1.5 outline-none focus:ring-1 focus:ring-accent/60 focus:border-accent/60 rounded-md;
 }
 
 .tab-btn {
-  @apply px-3 py-1.5 rounded-md text-sm border border-transparent text-muted hover:text-text hover:bg-panel2 transition;
+  @apply px-3 py-1.5 rounded-md text-sm border border-transparent text-muted hover:text-fg hover:bg-surface2 transition;
 }
 .tab-btn.active {
-  @apply text-text bg-panel2 border-border;
+  @apply text-fg bg-surface2 border-border;
 }
 
 table.grid {
   @apply w-full border-collapse text-sm;
 }
 table.grid th {
-  @apply text-left text-xs uppercase tracking-wide text-muted font-medium px-2 py-2 border-b border-border sticky top-0 bg-panel z-10;
+  @apply text-left text-xs uppercase tracking-wide text-muted font-medium px-2 py-2 border-b border-border sticky top-0 bg-surface z-10;
 }
 table.grid td {
   @apply align-top px-1 py-1 border-b border-border/60;

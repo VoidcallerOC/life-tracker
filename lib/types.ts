@@ -9,6 +9,9 @@ export interface AnimalRow {
   lastCleaned: string;  // yyyy-mm-dd — enclosure/substrate maintenance
   nextCareDue: string;  // yyyy-mm-dd — drives overdue/soon/later coloring
   notes: string;
+  feedEveryDays?: number;
+  cleanEveryDays?: number;
+  snoozeUntil?: string;
 }
 
 export interface ContentRow {
@@ -19,6 +22,7 @@ export interface ContentRow {
   status: string;
   platform: string;
   notes: string;
+  snoozeUntil?: string;
 }
 
 export interface PersonalRow {
@@ -28,6 +32,7 @@ export interface PersonalRow {
   deadline: string;
   status: string;
   notes: string;
+  snoozeUntil?: string;
 }
 
 export interface Store {
