@@ -1,5 +1,8 @@
 # Life OS
 
+> Idiot-proof rewrite lives on this `idiot-proof` branch. See [IDIOT_PROOF.md](./IDIOT_PROOF.md) and `src/`.
+> `main` / nicklife.xyz is still the Next.js spreadsheet OS until this is merged.
+
 Personal tracker for Nick — Forge clients, animal care, content, and personal tasks.
 Live: https://life-tracker-orcin-nine.vercel.app/
 
