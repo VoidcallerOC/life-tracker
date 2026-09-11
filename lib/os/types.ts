@@ -7,14 +7,7 @@ export type Lane = (typeof LANES)[number];
 export type Priority = "High" | "Medium" | "Low";
 export type TaskStatus = "Todo" | "Done";
 
-/**
- * `version` is the row version last read from the server. Every write sends it
- * back so a stale device gets a 409 instead of clobbering a newer edit. Records
- * created locally and not yet persisted carry version 0.
- */
-export type Versioned = { version: number };
-
-export type Client = Versioned & {
+export type Client = {
   id: string;
   name: string;
   businessType: string;
@@ -36,10 +29,9 @@ export type Client = Versioned & {
   notes: string;
   lastContacted: string;
   snoozeUntil: string;
-  lostReason: string;
 };
 
-export type Animal = Versioned & {
+export type Animal = {
   id: string;
   name: string;
   species: string;
@@ -53,7 +45,7 @@ export type Animal = Versioned & {
   snoozeUntil: string;
 };
 
-export type Task = Versioned & {
+export type Task = {
   id: string;
   title: string;
   lane: "content" | "personal";
@@ -73,22 +65,10 @@ export type LifeSnapshot = {
   coachDismissed: boolean;
 };
 
-export type EntityKind = "client" | "animal" | "task";
-
-/**
- * An undo step is the set of writes that reverses one user action. Storing the
- * inverse records (rather than a whole-app snapshot, as the JSON-blob version
- * did) means undo touches only the rows the action touched, so it no longer
- * reverts edits another device made in the meantime.
- */
-export type UndoOp =
-  | { op: "restore"; kind: EntityKind; record: Client | Animal | Task }
-  | { op: "remove"; kind: EntityKind; id: string };
-
 export type UndoEntry = {
   label: string;
   at: number;
-  ops: UndoOp[];
+  snapshot: LifeSnapshot;
 };
 
 export type QueueKind =
@@ -112,8 +92,6 @@ export type QueueItem = {
 
 export function emptyClient(): Omit<Client, "id"> {
   return {
-    version: 0,
-    lostReason: "",
     name: "",
     businessType: "",
     status: "Potential",
@@ -139,7 +117,6 @@ export function emptyClient(): Omit<Client, "id"> {
 
 export function emptyAnimal(): Omit<Animal, "id"> {
   return {
-    version: 0,
     name: "",
     species: "",
     enclosure: "",
@@ -155,7 +132,6 @@ export function emptyAnimal(): Omit<Animal, "id"> {
 
 export function emptyTask(lane: "content" | "personal"): Omit<Task, "id"> {
   return {
-    version: 0,
     title: "",
     lane,
     deadline: "",

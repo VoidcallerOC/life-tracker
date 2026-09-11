@@ -14,10 +14,9 @@ import { SettingsSheet } from "@/components/os/settings-sheet";
 import { RulesSheet } from "@/components/os/rules-sheet";
 import { ConfirmHost } from "@/components/os/confirm-gate";
 import { Button } from "@/components/os/ui/button";
-import { TodayLabel } from "@/components/os/today-label";
-import { SyncIndicator } from "@/components/os/sync-indicator";
 import { useLifeStore } from "@/lib/os/store";
 import { buildQueue } from "@/lib/os/queue";
+import { formatLongDate } from "@/lib/os/dates";
 import { cn } from "@/lib/os/cn";
 
 type Tab = "now" | "forge" | "animals" | "later";
@@ -60,13 +59,11 @@ export function AppShell() {
           <div className="min-w-0">
             <h1 className="text-lg font-semibold tracking-tight text-fg">Life OS</h1>
             <p className="truncate text-sm text-muted">
-              <TodayLabel
-                suffix={queueCount > 0 ? ` · ${queueCount} in front of you` : " · board clear"}
-              />
+              {formatLongDate()}
+              {queueCount > 0 ? ` · ${queueCount} in front of you` : " · board clear"}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            <SyncIndicator />
             <Button
               variant="ghost"
               size="icon"

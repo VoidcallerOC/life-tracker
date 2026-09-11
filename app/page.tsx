@@ -1,16 +1,10 @@
-import { redirect } from "next/navigation";
 import { LifeOS } from "@/components/LifeOS";
-import { readSnapshot } from "@/lib/db/repository";
-import { databaseConfigured } from "@/lib/db/client";
-import { currentSession } from "@/lib/session";
-import { SetupNotice } from "@/components/setup-notice";
+import { readClients } from "@/lib/clients/storage";
+import { readStore } from "@/lib/lifeStore/storage";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  if (!(await currentSession())) redirect("/login");
-  if (!databaseConfigured()) return <SetupNotice />;
-
-  const snapshot = await readSnapshot();
-  return <LifeOS initialSnapshot={snapshot} />;
+  const [clients, store] = await Promise.all([readClients(), readStore()]);
+  return <LifeOS initialClients={clients} initialStore={store} />;
 }

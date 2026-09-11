@@ -1,52 +1,34 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, expectedPassword, mintSessionCookie, parseSessionCookie, verifyPassword } from "@/lib/auth";
-import { databaseConfigured } from "@/lib/db/client";
-import { recordSession, revokeAllSessions, revokeSession } from "@/lib/db/sessions";
+import { SESSION_COOKIE, expectedPassword, sessionToken } from "@/lib/auth";
 
 export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
+  let expected: string;
   try {
-    expectedPassword();
+    expected = expectedPassword();
   } catch {
     redirect("/login?error=config");
   }
-  if (!(await verifyPassword(password))) {
+  if (password !== expected) {
     redirect("/login?error=1");
   }
 
-  const { cookie, token, expiresAt } = await mintSessionCookie();
-  if (databaseConfigured()) {
-    const headerList = await headers();
-    await recordSession(token, expiresAt, headerList.get("user-agent") ?? "");
-  }
-
+  const token = await sessionToken(expected);
   const store = await cookies();
-  store.set(SESSION_COOKIE, cookie, {
+  store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    expires: expiresAt,
+    maxAge: 60 * 60 * 24 * 30,
   });
   redirect("/");
 }
 
 export async function logoutAction() {
-  const store = await cookies();
-  const parsed = await parseSessionCookie(store.get(SESSION_COOKIE)?.value);
-  if (parsed && databaseConfigured()) {
-    await revokeSession(parsed.token);
-  }
-  store.delete(SESSION_COOKIE);
-  redirect("/login");
-}
-
-/** Sign out every device — the thing the old deterministic cookie made impossible. */
-export async function logoutEverywhereAction() {
-  if (databaseConfigured()) await revokeAllSessions();
   const store = await cookies();
   store.delete(SESSION_COOKIE);
   redirect("/login");

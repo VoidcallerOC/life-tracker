@@ -5,8 +5,6 @@ export const PIPELINE_STATUSES: Status[] = ["Potential", "Pending", "Paid"];
 
 export type Client = {
   id: string;
-  /** Row version last read from the server; sent back on every write. */
-  version: number;
   client: string;
   businessType: string;
   status: Status;
@@ -31,7 +29,6 @@ export type Client = {
 
 export function emptyClient(): Omit<Client, "id"> {
   return {
-    version: 0,
     client: "",
     businessType: "",
     status: "Potential",
