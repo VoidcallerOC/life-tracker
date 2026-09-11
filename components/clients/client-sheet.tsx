@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { deleteClient } from "@/app/clients/actions";
+import { createClient, deleteClient, saveClient } from "@/app/clients/actions";
 import { STATUSES, type Client } from "@/lib/clients/types";
 import { ContactActions } from "./contact-actions";
 
@@ -55,32 +55,18 @@ export function ClientSheet({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  // Saves go through the same versioned server actions the rest of the app
+  // uses, so a stale form is rejected rather than overwriting a newer edit.
   async function handleSubmit(formData: FormData) {
     setError(null);
     setPending(true);
     try {
-      const payload = Object.fromEntries(formData.entries());
-      const endpoint = mode === "edit" ? "/api/clients" : "/api/clients/create";
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        body: JSON.stringify(payload),
-      });
-      const text = await res.text();
-      let json: { ok?: boolean; client?: Client; error?: string } = {};
-      try {
-        json = JSON.parse(text) as { ok?: boolean; client?: Client; error?: string };
-      } catch {
-        setError(`Save returned ${res.status}, not JSON. Hard-refresh and try again.`);
+      const result = mode === "edit" ? await saveClient(formData) : await createClient(formData);
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
-      if (!res.ok || !json.ok || !json.client) {
-        setError(json.error || `Save failed (${res.status})`);
-        return;
-      }
-      onSaved?.(json.client);
+      onSaved?.(result.client);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -99,7 +85,12 @@ export function ClientSheet({
         <span className="w-14" />
       </div>
       <form action={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-        {mode === "edit" && client ? <input type="hidden" name="id" value={client.id} /> : null}
+        {mode === "edit" && client ? (
+          <>
+            <input type="hidden" name="id" value={client.id} />
+            <input type="hidden" name="version" value={client.version} />
+          </>
+        ) : null}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-6">
           {mode === "edit" && client ? <ContactActions client={client} /> : null}
           <Field label="Client" name="client" defaultValue={client?.client} placeholder="Business name" />

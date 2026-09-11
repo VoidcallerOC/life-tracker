@@ -11,3 +11,6 @@ data/life-store.json
 .vercel
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Local Postgres data used by the integration tests
+/pgdata

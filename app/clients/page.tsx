@@ -1,20 +1,22 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/login/actions";
 import { Tracker } from "@/components/clients/tracker";
-import { SyncButton } from "@/components/clients/sync-button";
 import { BackfillPaidDatesNotice } from "@/components/clients/backfill-paid-dates";
-import { readClients, blobEnabled, blobTokenName } from "@/lib/clients/storage";
+import { toLegacy } from "@/lib/clients/adapter";
+import { listClients } from "@/lib/db/repository";
+import { databaseConfigured } from "@/lib/db/client";
+import { currentSession } from "@/lib/session";
+import { SetupNotice } from "@/components/setup-notice";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientsPage() {
-  const clients = await readClients();
-  const storageOk = blobEnabled();
-  const tokenName = blobTokenName();
-  const isProd = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
-  const blobLikeEnv = Object.keys(process.env)
-    .filter((k) => k.endsWith("_READ_WRITE_TOKEN") || k === "BLOB_READ_WRITE_TOKEN")
-    .sort();
+  if (!(await currentSession())) redirect("/login");
+  if (!databaseConfigured()) return <SetupNotice />;
+
+  const clients = (await listClients()).map(toLegacy);
+
   return (
     <main className="mx-auto min-h-dvh w-full max-w-[420px] px-4 pb-8 pt-5">
       <header className="flex items-start justify-between gap-3">
@@ -24,32 +26,8 @@ export default async function ClientsPage() {
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Clients</h1>
           <p className="mt-1 text-sm text-muted">
-            Care plan $35/mo · Potential / Pending / Paid
+            Bulk edits. Every change is saved on its own row.
           </p>
-          <p className="mt-2 text-[11px]">
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 border ${
-                storageOk
-                  ? "border-later/40 bg-later/10 text-later"
-                  : "border-overdue/40 bg-overdue/10 text-overdue"
-              }`}
-            >
-              Storage: {storageOk ? `Vercel Blob ✓ (${tokenName})` : "Not connected"}
-            </span>
-          </p>
-          {!storageOk && isProd ? (
-            <div className="mt-2 text-[11px] leading-4 text-overdue">
-              <p>Changes won&apos;t save until storage is connected.</p>
-              <details className="mt-1 text-muted">
-                <summary className="cursor-pointer select-none">Technical details</summary>
-                <p className="mt-1">No *_READ_WRITE_TOKEN env var was found in this deployment.</p>
-                {blobLikeEnv.length > 0 ? <p className="mt-1">Detected token-like keys: {blobLikeEnv.join(", ")}</p> : null}
-                <p className="mt-1">
-                  Fix in Vercel → Storage → Blob → Projects → Connect Project → life-tracker, then redeploy.
-                </p>
-              </details>
-            </div>
-          ) : null}
         </div>
         <div className="flex flex-col items-end gap-2">
           <Link
@@ -58,17 +36,14 @@ export default async function ClientsPage() {
           >
             ← Life OS
           </Link>
-          <div className="flex gap-2">
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                className="h-9 rounded-lg border border-border px-3 text-xs text-muted hover:text-text"
-              >
-                Log out
-              </button>
-            </form>
-            <SyncButton />
-          </div>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="h-9 rounded-lg border border-border px-3 text-xs text-muted hover:text-text"
+            >
+              Log out
+            </button>
+          </form>
         </div>
       </header>
       <div className="mt-3">

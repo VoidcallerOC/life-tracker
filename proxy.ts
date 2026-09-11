@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { SESSION_COOKIE, isValidSession } from "./lib/auth";
+import { SESSION_COOKIE, parseSessionCookie } from "./lib/auth";
 
 const LOGIN_ATTEMPT_LIMIT = 5;
 const LOGIN_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
@@ -29,10 +29,12 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
     "Content-Security-Policy",
     "default-src 'self'; " +
       "script-src 'self' 'unsafe-inline'; " +
-      "style-src 'self'; " +
+      "style-src 'self' 'unsafe-inline'; " +
       "img-src 'self' data: blob:; " +
       "font-src 'self'; " +
       "connect-src 'self'; " +
+      "worker-src 'self'; " +
+      "manifest-src 'self'; " +
       "frame-ancestors 'none'; " +
       "form-action 'self'; " +
       "base-uri 'self'; " +
@@ -45,15 +47,32 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
-const TOKEN_GATED = new Set(["/api/summary", "/api/admin/clients", "/api/admin/store"]);
+/**
+ * Routes authenticated by the admin key header rather than a session cookie.
+ * They verify the key themselves; middleware just steps out of the way.
+ */
+const TOKEN_GATED = new Set([
+  "/api/summary",
+  "/api/admin/clients",
+  "/api/admin/store",
+  "/api/cron/notify",
+]);
 
-// API routes that require session authentication (return 401, not redirect)
-const SESSION_API_ROUTES = new Set(["/api/clients", "/api/clients/create"]);
+/** API routes answer 401 rather than redirecting to the login page. */
+function isApiRoute(pathname: string): boolean {
+  return pathname.startsWith("/api/");
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (TOKEN_GATED.has(pathname)) {
+    return withSecurityHeaders(NextResponse.next());
+  }
+
+  // The service worker and manifest must be reachable before login, or an
+  // installed app can never boot far enough to show the login screen.
+  if (pathname === "/sw.js" || pathname === "/manifest.webmanifest" || pathname === "/offline") {
     return withSecurityHeaders(NextResponse.next());
   }
 
@@ -63,23 +82,24 @@ export async function proxy(request: NextRequest) {
         NextResponse.redirect(new URL("/login?error=rate-limited", request.url)),
       );
     }
-    const session = request.cookies.get(SESSION_COOKIE)?.value;
-    if (await isValidSession(session)) {
+    const session = await parseSessionCookie(request.cookies.get(SESSION_COOKIE)?.value);
+    if (session) {
       return withSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
     }
     return withSecurityHeaders(NextResponse.next());
   }
 
-  const session = request.cookies.get(SESSION_COOKIE)?.value;
-  if (!(await isValidSession(session))) {
-    // For API routes, return 401 instead of redirecting
-    if (SESSION_API_ROUTES.has(pathname) || pathname.startsWith("/api/clients")) {
-      return withSecurityHeaders(
-        NextResponse.json({ error: "unauthorized" }, { status: 401 }),
-      );
+  // Signature and expiry only. Revocation is enforced server-side by
+  // `requireSession`, which can reach the database; middleware cannot.
+  const session = await parseSessionCookie(request.cookies.get(SESSION_COOKIE)?.value);
+  if (!session) {
+    if (isApiRoute(pathname)) {
+      return withSecurityHeaders(NextResponse.json({ error: "unauthorized" }, { status: 401 }));
     }
     const login = new URL("/login", request.url);
-    return withSecurityHeaders(NextResponse.redirect(login));
+    const response = NextResponse.redirect(login);
+    response.cookies.delete(SESSION_COOKIE);
+    return withSecurityHeaders(response);
   }
 
   return withSecurityHeaders(NextResponse.next());
@@ -87,6 +107,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

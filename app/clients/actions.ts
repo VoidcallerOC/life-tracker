@@ -1,27 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { emptyClient, isStatus, type Client, type Status } from "@/lib/clients/types";
-import { readClients, writeClients, resetToShippedSeed } from "@/lib/clients/storage";
+import { isStatus, type Client, type Status } from "@/lib/clients/types";
+import { emptyClient as emptyDomainClient, rid } from "@/lib/os/types";
+import { fromLegacy, toLegacy } from "@/lib/clients/adapter";
+import { VersionConflictError } from "@/lib/db/client";
+import { requireSession } from "@/lib/session";
+import * as repo from "@/lib/db/repository";
 
 const ROUTE = "/clients";
-const CLIENT_ID_PREFIX = "Client1-";
 
 export type SaveResult = { ok: true; client: Client } | { ok: false; error: string };
 
-function nextClientId(clients: Client[]): string {
-  const used = new Set(clients.map((client) => client.id));
-  let sequence = 1;
-  for (const client of clients) {
-    const match = client.id.match(/^Client1-(\d+)$/i);
-    if (match) sequence = Math.max(sequence, Number(match[1]) + 1);
-  }
-  let id = `${CLIENT_ID_PREFIX}${String(sequence).padStart(3, "0")}`;
-  while (used.has(id)) {
-    sequence += 1;
-    id = `${CLIENT_ID_PREFIX}${String(sequence).padStart(3, "0")}`;
-  }
-  return id;
+function revalidateClientPages() {
+  revalidatePath(ROUTE);
+  revalidatePath("/");
 }
 
 function parseMoney(value: FormDataEntryValue | null): number | null {
@@ -36,15 +29,91 @@ function field(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-function clientFromForm(formData: FormData, id: string): Client {
+function conflictMessage(): string {
+  return "This client changed on another device. Refresh to see the current version before editing.";
+}
+
+/**
+ * Each of these used to read the entire client list, mutate one entry, and write
+ * the whole list back. They now touch a single row and pass the version the form
+ * was rendered from, so a concurrent edit is rejected instead of overwritten.
+ */
+
+export async function saveClient(formData: FormData): Promise<SaveResult> {
+  try {
+    await requireSession();
+  } catch {
+    return { ok: false, error: "Signed out. Log in again." };
+  }
+
+  const id = field(formData, "id");
+  if (!id) return { ok: false, error: "Missing client id." };
+
+  const name = field(formData, "client");
+  if (!name) return { ok: false, error: "Client name is required." };
+
+  const existing = await repo.getClient(id);
+  if (!existing) return { ok: false, error: "Client not found." };
+
   const statusRaw = field(formData, "status");
-  const status: Status = isStatus(statusRaw) ? statusRaw : "Potential";
-  return {
-    id,
-    client: field(formData, "client"),
+  const next = {
+    ...existing,
+    name,
     businessType: field(formData, "businessType"),
-    status,
-    contacted: field(formData, "contacted") === "true",
+    status: isStatus(statusRaw) ? statusRaw : existing.status,
+    contactName: field(formData, "contactName"),
+    phone: field(formData, "phone"),
+    email: field(formData, "email"),
+    address: field(formData, "address"),
+    quoted: parseMoney(formData.get("quoted")),
+    deposit: parseMoney(formData.get("deposit")),
+    paid: parseMoney(formData.get("paid")),
+    paidDate: field(formData, "paidDate"),
+    githubRepo: field(formData, "githubRepo"),
+    liveUrl: field(formData, "liveUrl"),
+    domain: field(formData, "domain"),
+    nextAction: field(formData, "nextAction"),
+    notes: field(formData, "notes"),
+    lastContacted: field(formData, "lastContacted"),
+    contacted: formData.has("contacted")
+      ? field(formData, "contacted") === "true"
+      : existing.contacted,
+  };
+
+  // The form carries the version it was rendered from; fall back to the row's
+  // current version only when the form predates this field.
+  const submittedVersion = Number(field(formData, "version"));
+  const expected = Number.isInteger(submittedVersion) ? submittedVersion : existing.version;
+
+  try {
+    const saved = await repo.updateClient(next, expected);
+    revalidateClientPages();
+    return { ok: true, client: toLegacy(saved) };
+  } catch (error) {
+    if (error instanceof VersionConflictError) return { ok: false, error: conflictMessage() };
+    console.error("saveClient failed", error);
+    return { ok: false, error: "Save failed." };
+  }
+}
+
+export async function createClient(formData: FormData): Promise<SaveResult> {
+  try {
+    await requireSession();
+  } catch {
+    return { ok: false, error: "Signed out. Log in again." };
+  }
+
+  const name = field(formData, "client");
+  if (!name) return { ok: false, error: "Client name is required." };
+
+  const statusRaw = field(formData, "status");
+  const created = {
+    ...emptyDomainClient(),
+    id: rid(),
+    version: 0,
+    name,
+    businessType: field(formData, "businessType"),
+    status: isStatus(statusRaw) ? statusRaw : ("Potential" as Status),
     contactName: field(formData, "contactName"),
     phone: field(formData, "phone"),
     email: field(formData, "email"),
@@ -60,89 +129,43 @@ function clientFromForm(formData: FormData, id: string): Client {
     notes: field(formData, "notes"),
     lastContacted: field(formData, "lastContacted"),
   };
-}
-
-function revalidateClientPages() {
-  revalidatePath(ROUTE);
-  revalidatePath("/");
-}
-
-export async function saveClient(formData: FormData): Promise<SaveResult> {
-  const id = field(formData, "id");
-  if (!id) return { ok: false, error: "Missing client id." };
-  const submitted = clientFromForm(formData, id);
-  if (!submitted.client) return { ok: false, error: "Client name is required." };
 
   try {
-    const clients = await readClients();
-    const idx = clients.findIndex((c) => c.id === id);
-    if (idx === -1) {
-      clients.unshift(submitted);
-    } else {
-      const previous = clients[idx];
-      clients[idx] = formData.has("contacted")
-        ? { ...previous, ...submitted, dueDate: previous.dueDate, snoozeUntil: previous.snoozeUntil }
-        : { ...previous, ...submitted, contacted: previous.contacted, dueDate: previous.dueDate, snoozeUntil: previous.snoozeUntil };
-    }
-    await writeClients(clients);
+    const saved = await repo.insertClient(created);
     revalidateClientPages();
-    return { ok: true, client: submitted };
-  } catch (error) {
-    console.error("saveClient failed", error);
-    return { ok: false, error: "Storage write failed. Check Vercel Blob." };
-  }
-}
-
-export async function createClient(formData: FormData): Promise<SaveResult> {
-  const submittedName = field(formData, "client");
-  if (!submittedName) return { ok: false, error: "Client name is required." };
-
-  try {
-    const clients = await readClients();
-    const id = nextClientId(clients);
-    const next = clientFromForm(formData, id);
-    clients.unshift(next);
-    await writeClients(clients);
-    revalidateClientPages();
-    return { ok: true, client: next };
+    return { ok: true, client: toLegacy(saved) };
   } catch (error) {
     console.error("createClient failed", error);
-    return { ok: false, error: "Storage write failed. Check Vercel Blob." };
+    return { ok: false, error: "Save failed." };
   }
-}
-
-export async function reseedFromRepo() {
-  await resetToShippedSeed();
-  revalidateClientPages();
 }
 
 export async function backfillPaidDates(): Promise<number> {
+  await requireSession();
   const today = new Date().toISOString().slice(0, 10);
-  const clients = await readClients();
+  const clients = await repo.listClients();
   let count = 0;
-  const next = clients.map((c) => {
-    if (c.status === "Paid" && c.paid && !c.paidDate) {
-      count += 1;
-      return { ...c, paidDate: today };
+  for (const client of clients) {
+    if (client.status === "Paid" && client.paid && !client.paidDate) {
+      try {
+        await repo.updateClient({ ...client, paidDate: today }, client.version);
+        count += 1;
+      } catch (error) {
+        console.error(`Could not backfill paid date for ${client.id}`, error);
+      }
     }
-    return c;
-  });
-  if (count > 0) {
-    await writeClients(next);
-    revalidateClientPages();
   }
+  if (count > 0) revalidateClientPages();
   return count;
 }
 
 export async function setStatus(id: string, status: Status): Promise<boolean> {
-  if (!isStatus(status) || !id) return false;
-
   try {
-    const clients = await readClients();
-    const idx = clients.findIndex((c) => c.id === id);
-    if (idx === -1) return false;
-    clients[idx] = { ...clients[idx], status };
-    await writeClients(clients);
+    await requireSession();
+    if (!isStatus(status) || !id) return false;
+    const existing = await repo.getClient(id);
+    if (!existing) return false;
+    await repo.updateClient({ ...existing, status }, existing.version);
     revalidateClientPages();
     return true;
   } catch (error) {
@@ -152,14 +175,12 @@ export async function setStatus(id: string, status: Status): Promise<boolean> {
 }
 
 export async function setContacted(id: string, contacted: boolean): Promise<boolean> {
-  if (!id || typeof contacted !== "boolean") return false;
-
   try {
-    const clients = await readClients();
-    const idx = clients.findIndex((c) => c.id === id);
-    if (idx === -1) return false;
-    clients[idx] = { ...clients[idx], contacted };
-    await writeClients(clients);
+    await requireSession();
+    if (!id || typeof contacted !== "boolean") return false;
+    const existing = await repo.getClient(id);
+    if (!existing) return false;
+    await repo.updateClient({ ...existing, contacted }, existing.version);
     revalidateClientPages();
     return true;
   } catch (error) {
@@ -169,17 +190,22 @@ export async function setContacted(id: string, contacted: boolean): Promise<bool
 }
 
 export async function deleteClient(id: string): Promise<SaveResult> {
-  if (!id) return { ok: false, error: "Missing client id." };
   try {
-    const clients = await readClients();
-    const existing = clients.find((c) => c.id === id);
-    if (!existing) return { ok: false, error: "Client not found." };
-    await writeClients(clients.filter((c) => c.id !== id));
+    await requireSession();
+  } catch {
+    return { ok: false, error: "Signed out. Log in again." };
+  }
+  if (!id) return { ok: false, error: "Missing client id." };
+  const existing = await repo.getClient(id);
+  if (!existing) return { ok: false, error: "Client not found." };
+  try {
+    await repo.softDeleteClient(id, existing.version);
     revalidateClientPages();
-    return { ok: true, client: existing };
+    return { ok: true, client: toLegacy(existing) };
   } catch (error) {
+    if (error instanceof VersionConflictError) return { ok: false, error: conflictMessage() };
     console.error("deleteClient failed", error);
-    return { ok: false, error: "Storage write failed. Check Vercel Blob." };
+    return { ok: false, error: "Delete failed." };
   }
 }
 
@@ -198,22 +224,24 @@ function parseBulkNames(text: string): string[] {
 }
 
 export async function bulkAdd(formData: FormData) {
+  await requireSession();
   const names = parseBulkNames(String(formData.get("names") ?? ""));
   if (names.length === 0) return;
-  const clients = await readClients();
-  const existing = new Set(clients.map((c) => c.client.toLowerCase()));
-  const added: Client[] = [];
+
+  const existing = await repo.listClients();
+  const seen = new Set(existing.map((c) => c.name.toLowerCase()));
+  let added = 0;
   for (const name of names) {
-    if (existing.has(name.toLowerCase())) continue;
-    existing.add(name.toLowerCase());
-    added.push({
-      ...emptyClient(),
-      id: nextClientId([...added, ...clients]),
-      client: name,
-      status: "Potential",
-    });
+    if (seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    await repo.insertClient({ ...emptyDomainClient(), id: rid(), version: 0, name, status: "Potential" });
+    added += 1;
   }
-  if (added.length === 0) return;
-  await writeClients([...added, ...clients]);
-  revalidateClientPages();
+  if (added > 0) revalidateClientPages();
+}
+
+/** Used by the spreadsheet page to load rows in its own field naming. */
+export async function listLegacyClients(): Promise<Client[]> {
+  await requireSession();
+  return (await repo.listClients()).map(toLegacy);
 }
