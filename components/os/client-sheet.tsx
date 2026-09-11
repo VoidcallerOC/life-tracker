@@ -125,24 +125,23 @@ export function ClientSheet({
     onClose();
   }
 
-  async function remove() {
+  function remove() {
     if (!client) return;
     const locked = deleteClientError(client);
     if (locked) {
       toast.error(locked);
       return;
     }
-    const res = await askConfirm({
-      title: `Delete ${client.name}?`,
-      body: "Type the shop name. This is undoable for a bit.",
-      confirmLabel: "Delete",
-      danger: true,
-      kind: "type-name",
-      expectedName: client.name,
-    });
-    if (!res.ok) return;
     deleteClient(client.id);
-    toast(`Deleted ${client.name}`);
+    toast(`Deleted ${client.name}`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const label = useLifeStore.getState().undo();
+          if (label) toast(`Undid: ${label}`);
+        },
+      },
+    });
     onClose();
   }
 
