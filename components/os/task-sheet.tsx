@@ -7,7 +7,6 @@ import { Button } from "@/components/os/ui/button";
 import { Input } from "@/components/os/ui/input";
 import { Textarea } from "@/components/os/ui/textarea";
 import { Label } from "@/components/os/ui/label";
-import { askConfirm } from "@/components/os/confirm-gate";
 import { useLifeStore } from "@/lib/os/store";
 import type { Priority, Task } from "@/lib/os/types";
 import { emptyTask } from "@/lib/os/types";
@@ -55,19 +54,18 @@ export function TaskSheet({
     onClose();
   }
 
-  async function remove() {
+  function remove() {
     if (!task) return;
-    const res = await askConfirm({
-      title: `Delete “${task.title}”?`,
-      body: "Type the task name.",
-      confirmLabel: "Delete",
-      danger: true,
-      kind: "type-name",
-      expectedName: task.title,
-    });
-    if (!res.ok) return;
     deleteTask(task.id);
-    toast("Deleted task");
+    toast("Deleted task", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const label = useLifeStore.getState().undo();
+          if (label) toast(`Undid: ${label}`);
+        },
+      },
+    });
     onClose();
   }
 

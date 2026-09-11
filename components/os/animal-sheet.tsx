@@ -7,7 +7,6 @@ import { Button } from "@/components/os/ui/button";
 import { Input } from "@/components/os/ui/input";
 import { Textarea } from "@/components/os/ui/textarea";
 import { Label } from "@/components/os/ui/label";
-import { askConfirm } from "@/components/os/confirm-gate";
 import { useLifeStore } from "@/lib/os/store";
 import type { Animal } from "@/lib/os/types";
 import { emptyAnimal } from "@/lib/os/types";
@@ -50,19 +49,18 @@ export function AnimalSheet({
     onClose();
   }
 
-  async function remove() {
+  function remove() {
     if (!animal) return;
-    const res = await askConfirm({
-      title: `Remove ${animal.name}?`,
-      body: "Type the name. Care history leaves with them.",
-      confirmLabel: "Remove",
-      danger: true,
-      kind: "type-name",
-      expectedName: animal.name,
-    });
-    if (!res.ok) return;
     deleteAnimal(animal.id);
-    toast(`Removed ${animal.name}`);
+    toast(`Removed ${animal.name}`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          const label = useLifeStore.getState().undo();
+          if (label) toast(`Undid: ${label}`);
+        },
+      },
+    });
     onClose();
   }
 

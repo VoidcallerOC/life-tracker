@@ -8,6 +8,6 @@ This is the live app on nicklife.xyz.
 - **No client-side lock screen** — proxy already gates every page.
 - **No seed overwrite.** The UI hydrates from Blob. Saves refuse an empty shop list or empty animals/content/personal snapshot.
 - **Sans UI** (IBM Plex), compact 56px tab bar, no giant iPhone footer.
-- Guardrails: undo, snooze, type-to-delete, type the paid amount, Lost needs a reason.
+- Guardrails: undo, snooze, instant delete (undo is the safety net), type the paid amount, Lost needs a reason.
 
 Week pin lives in `lib/os/priorities.ts`. Update that file when the week changes.

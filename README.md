@@ -13,7 +13,7 @@ Password-gated. Blob-backed. Same data on every device.
 - **Later** — content + personal that is not due yet.
 - **Spreadsheet** — `/clients` for bulk edits.
 
-Guardrails: undo, snooze, type-to-delete, type-the-dollar-amount to mark Paid, reason to mark Lost.
+Guardrails: undo, snooze, instant delete, type-the-dollar-amount to mark Paid, reason to mark Lost.
 
 ## Data
 - Production: Vercel Blob (`clients.json` + `life-store.json`). The app never writes to the Vercel function filesystem. Default store mode is private; set `BLOB_ACCESS_MODE=public` only if the connected Blob store was created as public.
