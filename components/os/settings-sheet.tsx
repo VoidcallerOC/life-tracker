@@ -9,7 +9,8 @@ import { askConfirm } from "@/components/os/confirm-gate";
 import { useLifeStore } from "@/lib/os/store";
 import { todayIso } from "@/lib/os/dates";
 import { downloadIcs, lifeToIcs } from "@/lib/os/ics";
-import { logoutAction } from "@/app/login/actions";
+import { PushToggle } from "@/components/os/push-toggle";
+import { logoutAction, logoutEverywhereAction } from "@/app/login/actions";
 import type { LifeSnapshot } from "@/lib/os/types";
 
 export function SettingsSheet({ onClose }: { onClose: () => void }) {
@@ -17,9 +18,10 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
   const animals = useLifeStore((s) => s.animals);
   const tasks = useLifeStore((s) => s.tasks);
   const coachDismissed = useLifeStore((s) => s.coachDismissed);
-  const replaceAll = useLifeStore((s) => s.replaceAll);
+  const refresh = useLifeStore((s) => s.refresh);
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
 
   function exportJson() {
     const snap: LifeSnapshot = { clients, animals, tasks, coachDismissed };
@@ -48,24 +50,39 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
       }
       const res = await askConfirm({
         title: "Replace everything with this backup?",
-        body: "This overwrites the live tracker and syncs to every device. Undo can still reverse it on this phone until you leave.",
+        body: "This overwrites the live tracker on every device. Records not in the backup are removed. This cannot be undone from the app.",
         confirmLabel: "Import",
         danger: true,
       });
       if (!res.ok) return;
-      replaceAll(
-        {
+
+      setImporting(true);
+      const response = await fetch("/api/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
           clients: parsed.clients,
           animals: parsed.animals,
           tasks: parsed.tasks,
           coachDismissed: Boolean(parsed.coachDismissed),
-        },
-        "Import backup",
-      );
-      toast("Backup imported — syncing");
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(
+          response.status === 422
+            ? "That backup has records this version cannot read."
+            : `Import failed (${response.status})`,
+        );
+      }
+
+      await refresh();
+      toast("Backup imported");
       onClose();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Could not read that file.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -83,9 +100,17 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
         <Button variant="secondary" className="w-full" onClick={exportCalendar}>
           Export calendar (.ics)
         </Button>
-        <Button variant="secondary" className="w-full" onClick={() => fileRef.current?.click()}>
-          Import backup
+        <Button
+          variant="secondary"
+          className="w-full"
+          disabled={importing}
+          onClick={() => fileRef.current?.click()}
+        >
+          {importing ? "Importing…" : "Import backup"}
         </Button>
+        <div className="pt-1">
+          <PushToggle />
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -106,6 +131,11 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
         <form action={logoutAction}>
           <Button variant="secondary" className="w-full" type="submit">
             Log out
+          </Button>
+        </form>
+        <form action={logoutEverywhereAction}>
+          <Button variant="secondary" className="w-full" type="submit">
+            Log out on every device
           </Button>
         </form>
         {msg ? <p className="text-sm text-overdue">{msg}</p> : null}
