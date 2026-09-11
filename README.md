@@ -1,32 +1,30 @@
 # Life OS
 
 Personal tracker for Nick — Forge clients, animal care, content, and personal tasks.
-Live: https://life-tracker-orcin-nine.vercel.app/
 
-## Sections
-- **Dashboard** — dated work across sections + Pending/Paid Forge next actions. Export `.ics` for calendar reminders.
-- **Forge** — client pipeline (Potential / Pending / Paid / Lost), $35/mo care plan MRR.
-- **Animals** — name, species, enclosure, last fed/cleaned, next care due.
-- **Content** — social/marketing tasks with platform + deadline.
-- **Personal** — general to-dos.
+Live: https://nicklife.xyz
 
-## Deadline colors
-- **Red** — overdue
-- **Yellow** — today or tomorrow
-- **Green** — later
+Password-gated. Blob-backed. Same data on every device.
+
+## How it works
+- **Do Now** — the only front door. Animals due today/overdue, tasks due today/tomorrow, stale shops, missing next actions.
+- **Forge** — shop pipeline. Leads stay parked so 90 potentials cannot drown today. Paid shops show care-plan money.
+- **Animals** — one tap Fed / Cleaned. Typed-name guard before delete.
+- **Later** — content + personal that is not due yet.
+- **Spreadsheet** — `/clients` for bulk edits.
+
+Guardrails: undo, snooze, type-to-delete, type-the-dollar-amount to mark Paid, reason to mark Lost.
 
 ## Data
-- Production: Vercel Blob (`clients.json` + `life-store.json`). The app never writes to the Vercel function filesystem. The default store mode is private; set `BLOB_ACCESS_MODE=public` only if the connected Blob store was created as public.
+- Production: Vercel Blob (`clients.json` + `life-store.json`). The app never writes to the Vercel function filesystem. Default store mode is private; set `BLOB_ACCESS_MODE=public` only if the connected Blob store was created as public.
 - Local: `data/clients.json` and `data/life-store.json`.
 - Auth: shared password via `AUTH_PASSWORD`.
-- If Animals/Content/Personal are empty on first load, a small starter set is written so the dashboard is not blank.
+- Homepage mutations debounce 800ms and write back to Blob. An empty client list or empty animals/content/personal snapshot is refused so production data cannot be wiped by a bad hydrate.
 
 ## Setup
 1. Copy `.env.example` → `.env.local` and set `AUTH_PASSWORD`.
 2. Production: connect one Vercel Blob store to this project, ensure its access mode matches `BLOB_ACCESS_MODE` (default `private`), and redeploy. The store's generated `*_READ_WRITE_TOKEN` must be present in the deployment environment. Confirm the storage pill on `/clients` says `Vercel Blob ✓`.
-3. If the store was created with the other access mode, either change `BLOB_ACCESS_MODE` or recreate/connect the store with the intended mode; the server also retries the alternate mode to make an existing store migration safe.
-4. On `/clients`, run **Set today's date** if Paid clients are missing `paidDate`.
-5. Phone: open the site → Share → Add to Home Screen.
+3. Phone: open the site → Share → Add to Home Screen.
 
 ## Dev
 ```bash

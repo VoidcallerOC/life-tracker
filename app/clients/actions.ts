@@ -79,9 +79,10 @@ export async function saveClient(formData: FormData): Promise<SaveResult> {
     if (idx === -1) {
       clients.unshift(submitted);
     } else {
+      const previous = clients[idx];
       clients[idx] = formData.has("contacted")
-        ? submitted
-        : { ...submitted, contacted: clients[idx].contacted };
+        ? { ...previous, ...submitted, dueDate: previous.dueDate, snoozeUntil: previous.snoozeUntil }
+        : { ...previous, ...submitted, contacted: previous.contacted, dueDate: previous.dueDate, snoozeUntil: previous.snoozeUntil };
     }
     await writeClients(clients);
     revalidateClientPages();
