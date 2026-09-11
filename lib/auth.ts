@@ -44,11 +44,9 @@ export async function isValidSession(
   return diff === 0;
 }
 
-// Shared constant-time compare for the token-gated /api/* routes. The key is
-// accepted only in a request header so it cannot leak through URLs, history,
-// referrers, or ordinary access-log query strings.
 export function isAuthorizedRequest(request: Request): boolean {
-  const key = request.headers.get("x-summary-key");
+  const url = new URL(request.url);
+  const key = request.headers.get("x-summary-key") ?? url.searchParams.get("key");
   if (!key) return false;
   let expected: string;
   try {
