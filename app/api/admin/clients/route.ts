@@ -34,6 +34,16 @@ function stripQueuePrefix(action: string): string {
   return action.replace(/^#?\d{1,2}\s*[.—\-:]\s*/u, "").trim();
 }
 
+function parseMoneyParam(raw: string | null): number | null | undefined {
+  if (raw == null) return undefined;
+  const cleaned = raw.trim();
+  if (!cleaned) return null;
+  const match = cleaned.replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
 async function jsonBody(request: Request): Promise<Record<string, unknown>> {
   try {
     const body = await request.json();
@@ -47,15 +57,64 @@ function text(body: Record<string, unknown>, key: string): string {
   return typeof body[key] === "string" ? body[key].trim() : "";
 }
 
+function moneyFromBody(body: Record<string, unknown>, key: string): number | null | undefined {
+  if (!(key in body)) return undefined;
+  const v = body[key];
+  if (v == null || v === "") return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const match = String(v).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(request: Request) {
   if (!isAuthorizedRequest(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const url = new URL(request.url);
   const clients = await readClients();
-  const id = new URL(request.url).searchParams.get("id");
+  const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ clients });
-  const client = clients.find((c) => c.id === id);
-  return client
-    ? NextResponse.json({ client })
-    : NextResponse.json({ error: "client not found" }, { status: 404 });
+  const idx = clients.findIndex((c) => c.id === id);
+  if (idx === -1) return NextResponse.json({ error: "client not found" }, { status: 404 });
+
+  const nextAction = url.searchParams.get("nextAction");
+  const notes = url.searchParams.get("notes");
+  const paidDate = url.searchParams.get("paidDate");
+  const lastContacted = url.searchParams.get("lastContacted");
+  const statusRaw = url.searchParams.get("status");
+  const contactedRaw = url.searchParams.get("contacted");
+  const quoted = parseMoneyParam(url.searchParams.get("quoted"));
+  const deposit = parseMoneyParam(url.searchParams.get("deposit"));
+  const paid = parseMoneyParam(url.searchParams.get("paid"));
+
+  const hasUpdate =
+    nextAction !== null ||
+    notes !== null ||
+    paidDate !== null ||
+    lastContacted !== null ||
+    statusRaw !== null ||
+    contactedRaw !== null ||
+    quoted !== undefined ||
+    deposit !== undefined ||
+    paid !== undefined;
+
+  if (!hasUpdate) return NextResponse.json({ client: clients[idx] });
+
+  const updated = { ...clients[idx] };
+  if (nextAction !== null) updated.nextAction = nextAction;
+  if (notes !== null) updated.notes = notes;
+  if (paidDate !== null) updated.paidDate = paidDate;
+  if (lastContacted !== null) updated.lastContacted = lastContacted;
+  if (statusRaw !== null && isStatus(statusRaw)) updated.status = statusRaw;
+  if (contactedRaw === "true") updated.contacted = true;
+  if (contactedRaw === "false") updated.contacted = false;
+  if (quoted !== undefined) updated.quoted = quoted;
+  if (deposit !== undefined) updated.deposit = deposit;
+  if (paid !== undefined) updated.paid = paid;
+
+  clients[idx] = updated;
+  await writeClients(clients);
+  return NextResponse.json({ client: updated });
 }
 
 export async function POST(request: Request) {
@@ -113,9 +172,15 @@ export async function PATCH(request: Request) {
   const idx = clients.findIndex((c) => c.id === id);
   if (idx === -1) return NextResponse.json({ error: "client not found" }, { status: 404 });
   const updated = { ...clients[idx] };
-  for (const key of ["nextAction", "notes", "paidDate"] as const) if (typeof body[key] === "string") updated[key] = body[key].trim();
-  if (typeof body.paid === "number" && Number.isFinite(body.paid)) updated.paid = body.paid;
-  if (body.paid === null) updated.paid = null;
+  for (const key of ["nextAction", "notes", "paidDate", "lastContacted"] as const) {
+    if (typeof body[key] === "string") updated[key] = body[key].trim();
+  }
+  const quoted = moneyFromBody(body, "quoted");
+  const deposit = moneyFromBody(body, "deposit");
+  const paid = moneyFromBody(body, "paid");
+  if (quoted !== undefined) updated.quoted = quoted;
+  if (deposit !== undefined) updated.deposit = deposit;
+  if (paid !== undefined) updated.paid = paid;
   if (typeof body.status === "string" && isStatus(body.status)) updated.status = body.status;
   if (typeof body.contacted === "boolean") updated.contacted = body.contacted;
   clients[idx] = updated;
