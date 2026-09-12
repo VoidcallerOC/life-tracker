@@ -32,18 +32,42 @@ export function databaseConfigured(): boolean {
   return databaseUrl() !== undefined;
 }
 
+/**
+ * Supabase's Supavisor pooler in transaction mode (and PgBouncer generally)
+ * cannot hold prepared statements across a connection, which is what
+ * postgres.js uses by default — every query would fail with
+ * "prepared statement already exists".
+ *
+ * Serverless deployments need the pooler, so detect it and turn prepared
+ * statements off rather than leaving a footgun in the connection string.
+ */
+export function isTransactionPooler(url: string): boolean {
+  return (
+    url.includes("pooler.supabase.com") ||
+    url.includes(":6543") ||
+    url.includes("pgbouncer=true")
+  );
+}
+
 export function sql(): postgres.Sql {
   if (globalThis.__lifeOsSql) return globalThis.__lifeOsSql;
   const url = databaseUrl();
   if (!url) throw new DatabaseNotConfiguredError();
 
+  const local = url.includes("localhost") || url.includes("127.0.0.1");
+  const pooled = isTransactionPooler(url);
+
   const instance = postgres(url, {
-    max: Number(process.env.DATABASE_POOL_MAX ?? 5),
+    // A transaction pooler multiplexes many clients onto few server
+    // connections, so a large client-side pool is counterproductive.
+    max: Number(process.env.DATABASE_POOL_MAX ?? (pooled ? 1 : 5)),
     idle_timeout: 20,
     connect_timeout: 10,
     // Hosted Postgres (Supabase, Neon, Vercel) terminates TLS with its own CA.
-    ssl: url.includes("localhost") || url.includes("127.0.0.1") ? false : "require",
+    ssl: local ? false : "require",
     transform: { undefined: null },
+    // See isTransactionPooler: prepared statements break through a pooler.
+    prepare: !pooled,
     // Life OS owns its own schema so the database can host other applications
     // without name collisions. Unqualified table names resolve here.
     connection: { search_path: DB_SCHEMA },

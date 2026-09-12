@@ -15,10 +15,15 @@ if (!url) {
 
 const schema = (process.env.DATABASE_SCHEMA ?? "life_os").trim();
 const local = url.includes("localhost") || url.includes("127.0.0.1");
+// Supabase's transaction pooler (port 6543) cannot keep prepared statements,
+// which postgres.js uses by default. Detect it and disable them.
+const pooled =
+  url.includes("pooler.supabase.com") || url.includes(":6543") || url.includes("pgbouncer=true");
 const sql = postgres(url, {
   max: 1,
   ssl: local ? false : "require",
   onnotice: () => {},
+  prepare: !pooled,
   connection: { search_path: schema },
 });
 
