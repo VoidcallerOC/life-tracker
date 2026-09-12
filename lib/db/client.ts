@@ -19,6 +19,9 @@ export class DatabaseNotConfiguredError extends Error {
   }
 }
 
+/** Schema owning every Life OS table. Overridable for an isolated test database. */
+export const DB_SCHEMA = process.env.DATABASE_SCHEMA?.trim() || "life_os";
+
 export function databaseUrl(): string | undefined {
   const raw = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
   const trimmed = raw?.trim();
@@ -41,6 +44,9 @@ export function sql(): postgres.Sql {
     // Hosted Postgres (Supabase, Neon, Vercel) terminates TLS with its own CA.
     ssl: url.includes("localhost") || url.includes("127.0.0.1") ? false : "require",
     transform: { undefined: null },
+    // Life OS owns its own schema so the database can host other applications
+    // without name collisions. Unqualified table names resolve here.
+    connection: { search_path: DB_SCHEMA },
   });
   globalThis.__lifeOsSql = instance;
   return instance;

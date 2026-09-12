@@ -1,15 +1,20 @@
 -- Life OS schema. Row-per-record storage replacing the whole-document JSON blobs.
 --
+-- Everything lives in a dedicated `life_os` schema rather than `public`, so this
+-- database can host other applications without name collisions.
+--
 -- Every mutable entity carries `version`, bumped by trigger on each UPDATE. Writers
 -- send the version they read; a mismatch means someone else changed the row first and
 -- the write is rejected instead of silently overwriting them.
 
-CREATE TABLE IF NOT EXISTS schema_migrations (
+CREATE SCHEMA IF NOT EXISTS life_os;
+
+CREATE TABLE IF NOT EXISTS life_os.schema_migrations (
   version    text PRIMARY KEY,
   applied_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE OR REPLACE FUNCTION bump_version() RETURNS trigger AS $$
+CREATE OR REPLACE FUNCTION life_os.bump_version() RETURNS trigger AS $$
 BEGIN
   NEW.version := OLD.version + 1;
   NEW.updated_at := now();
@@ -17,7 +22,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TABLE IF NOT EXISTS clients (
+CREATE TABLE IF NOT EXISTS life_os.clients (
   id             text PRIMARY KEY,
   name           text NOT NULL DEFAULT '',
   business_type  text NOT NULL DEFAULT '',
@@ -47,7 +52,7 @@ CREATE TABLE IF NOT EXISTS clients (
   deleted_at     timestamptz
 );
 
-CREATE TABLE IF NOT EXISTS animals (
+CREATE TABLE IF NOT EXISTS life_os.animals (
   id                text PRIMARY KEY,
   name              text NOT NULL DEFAULT '',
   species           text NOT NULL DEFAULT '',
@@ -65,7 +70,7 @@ CREATE TABLE IF NOT EXISTS animals (
   deleted_at        timestamptz
 );
 
-CREATE TABLE IF NOT EXISTS tasks (
+CREATE TABLE IF NOT EXISTS life_os.tasks (
   id            text PRIMARY KEY,
   title         text NOT NULL DEFAULT '',
   lane          text NOT NULL CHECK (lane IN ('content', 'personal')),
@@ -84,7 +89,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 );
 
 -- Free-form app settings (week pin, coach dismissal) that used to require a code edit.
-CREATE TABLE IF NOT EXISTS settings (
+CREATE TABLE IF NOT EXISTS life_os.settings (
   key        text PRIMARY KEY,
   value      jsonb NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -92,7 +97,7 @@ CREATE TABLE IF NOT EXISTS settings (
 
 -- Opaque session tokens. Only the SHA-256 of the token is stored, so a database
 -- leak does not hand out live sessions.
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE IF NOT EXISTS life_os.sessions (
   token_hash   text PRIMARY KEY,
   created_at   timestamptz NOT NULL DEFAULT now(),
   expires_at   timestamptz NOT NULL,
@@ -100,7 +105,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_agent   text NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS push_subscriptions (
+CREATE TABLE IF NOT EXISTS life_os.push_subscriptions (
   endpoint    text PRIMARY KEY,
   p256dh      text NOT NULL,
   auth        text NOT NULL,
@@ -109,20 +114,20 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   failure_count integer NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS clients_live_idx ON clients (status) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS clients_due_idx ON clients (due_date) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS animals_due_idx ON animals (next_care_due) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS tasks_due_idx ON tasks (deadline) WHERE deleted_at IS NULL AND status <> 'Done';
-CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions (expires_at);
+CREATE INDEX IF NOT EXISTS clients_live_idx ON life_os.clients (status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS clients_due_idx ON life_os.clients (due_date) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS animals_due_idx ON life_os.animals (next_care_due) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS tasks_due_idx ON life_os.tasks (deadline) WHERE deleted_at IS NULL AND status <> 'Done';
+CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON life_os.sessions (expires_at);
 
-DROP TRIGGER IF EXISTS clients_version ON clients;
-CREATE TRIGGER clients_version BEFORE UPDATE ON clients
-  FOR EACH ROW EXECUTE FUNCTION bump_version();
+DROP TRIGGER IF EXISTS clients_version ON life_os.clients;
+CREATE TRIGGER clients_version BEFORE UPDATE ON life_os.clients
+  FOR EACH ROW EXECUTE FUNCTION life_os.bump_version();
 
-DROP TRIGGER IF EXISTS animals_version ON animals;
-CREATE TRIGGER animals_version BEFORE UPDATE ON animals
-  FOR EACH ROW EXECUTE FUNCTION bump_version();
+DROP TRIGGER IF EXISTS animals_version ON life_os.animals;
+CREATE TRIGGER animals_version BEFORE UPDATE ON life_os.animals
+  FOR EACH ROW EXECUTE FUNCTION life_os.bump_version();
 
-DROP TRIGGER IF EXISTS tasks_version ON tasks;
-CREATE TRIGGER tasks_version BEFORE UPDATE ON tasks
-  FOR EACH ROW EXECUTE FUNCTION bump_version();
+DROP TRIGGER IF EXISTS tasks_version ON life_os.tasks;
+CREATE TRIGGER tasks_version BEFORE UPDATE ON life_os.tasks
+  FOR EACH ROW EXECUTE FUNCTION life_os.bump_version();

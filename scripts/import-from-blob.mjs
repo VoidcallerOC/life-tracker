@@ -134,8 +134,14 @@ if (!apply) {
   process.exit(0);
 }
 
+const schema = (process.env.DATABASE_SCHEMA ?? "life_os").trim();
 const local = url.includes("localhost") || url.includes("127.0.0.1");
-const sql = postgres(url, { max: 1, ssl: local ? false : "require", onnotice: () => {} });
+const sql = postgres(url, {
+  max: 1,
+  ssl: local ? false : "require",
+  onnotice: () => {},
+  connection: { search_path: schema },
+});
 
 let inserted = { clients: 0, animals: 0, tasks: 0 };
 await sql.begin(async (tx) => {

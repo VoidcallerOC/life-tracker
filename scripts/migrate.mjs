@@ -13,20 +13,29 @@ if (!url) {
   process.exit(1);
 }
 
+const schema = (process.env.DATABASE_SCHEMA ?? "life_os").trim();
 const local = url.includes("localhost") || url.includes("127.0.0.1");
-const sql = postgres(url, { max: 1, ssl: local ? false : "require", onnotice: () => {} });
+const sql = postgres(url, {
+  max: 1,
+  ssl: local ? false : "require",
+  onnotice: () => {},
+  connection: { search_path: schema },
+});
 
 const dir = path.join(process.cwd(), "db", "migrations");
 const files = (await readdir(dir)).filter((f) => f.endsWith(".sql")).sort();
 
+// The bookkeeping table lives in the same schema as everything else, so a
+// second application in this database keeps its own migration history.
+await sql`CREATE SCHEMA IF NOT EXISTS ${sql(schema)}`;
 await sql`
-  CREATE TABLE IF NOT EXISTS schema_migrations (
+  CREATE TABLE IF NOT EXISTS ${sql(schema)}.schema_migrations (
     version text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()
   )
 `;
 const applied = new Set(
-  (await sql`SELECT version FROM schema_migrations`).map((r) => r.version),
+  (await sql`SELECT version FROM ${sql(schema)}.schema_migrations`).map((r) => r.version),
 );
 
 let count = 0;
@@ -38,7 +47,7 @@ for (const file of files) {
   const body = await readFile(path.join(dir, file), "utf8");
   await sql.begin(async (tx) => {
     await tx.unsafe(body);
-    await tx`INSERT INTO schema_migrations (version) VALUES (${file})`;
+    await tx`INSERT INTO ${tx(schema)}.schema_migrations (version) VALUES (${file})`;
   });
   console.log(`applied ${file}`);
   count += 1;
